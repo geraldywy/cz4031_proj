@@ -52,7 +52,7 @@ func TestInt32Conversion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Int32FromBytes(Int32ToBytes(tt.input)); got != tt.input {
-				t.Errorf("Float32FromBytes() = %v, want %v", got, tt.input)
+				t.Errorf("UFloat32FromBytes() = %v, want %v", got, tt.input)
 			}
 		})
 	}

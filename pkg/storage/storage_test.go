@@ -23,7 +23,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 110, 20, 20, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 10, 0, 0, 0},
+					[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 					nil,
 					nil,
 					nil,
@@ -31,9 +31,9 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 			},
 			ptr: &StoragePointer{
 				BlockPtr:  2,
-				RecordPtr: 4,
+				RecordPtr: 1,
 			},
-			want:    record.NewRecordFromBytes(record.SerializedRecord{116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+			want:    record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			wantErr: false,
 		},
 		{
@@ -42,17 +42,17 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 110, 20, 20, 116, 116, 48, 48, 48, 48, 48},
-					[]byte{10, 10, 20, 0, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 10, 0, 0, 0},
+					[]byte{9, 0, 116, 116, 48, 48, 48, 48, 48},
+					[]byte{19, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 					nil,
 					nil,
 				},
 			},
 			ptr: &StoragePointer{
 				BlockPtr:  2,
-				RecordPtr: 4,
+				RecordPtr: 1,
 			},
-			want:    record.NewRecordFromBytes(record.SerializedRecord{116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+			want:    record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			wantErr: false,
 		},
 	}
@@ -96,19 +96,19 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157,
-						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				},
 				spaceUsed:   100,
 				maxCapacity: 1000,
 				blockSize:   50,
 			},
 			args: args{
-				record: record.NewRecordFromBytes(record.SerializedRecord{116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
 			want: &StoragePointer{
 				BlockPtr:  2,
-				RecordPtr: 21,
+				RecordPtr: 28,
 			},
 			wantErr: false,
 		},
@@ -118,19 +118,19 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157,
-						0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[]byte{28, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157,
+						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				},
 				spaceUsed:   100,
 				maxCapacity: 1000,
 				blockSize:   30,
 			},
 			args: args{
-				record: record.NewRecordFromBytes(record.SerializedRecord{116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
 			want: &StoragePointer{
 				BlockPtr:  2,
-				RecordPtr: 21,
+				RecordPtr: 28,
 			},
 			wantErr: false,
 		},
@@ -140,18 +140,18 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157},
+					[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				},
 				spaceUsed:   500,
 				maxCapacity: 1000,
-				blockSize:   21,
+				blockSize:   28,
 			},
 			args: args{
-				record: record.NewRecordFromBytes(record.SerializedRecord{116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
 			want: &StoragePointer{
 				BlockPtr:  3,
-				RecordPtr: 4,
+				RecordPtr: 1,
 			},
 			wantErr: false,
 		},
@@ -164,11 +164,11 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				blockSize:   21,
 			},
 			args: args{
-				record: record.NewRecordFromBytes(record.SerializedRecord{116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
 			want: &StoragePointer{
 				BlockPtr:  0,
-				RecordPtr: 4,
+				RecordPtr: 1,
 			},
 			wantErr: false,
 		},
@@ -202,10 +202,11 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 
 func Test_storageImpl_DeleteRecord(t *testing.T) {
 	type fields struct {
-		store       []block
-		spaceUsed   int
-		maxCapacity int
-		blockSize   int
+		store                 []block
+		spaceUsed             int
+		maxCapacity           int
+		blockSize             int
+		lastRecordInsertedPtr *StoragePointer
 	}
 	type args struct {
 		ptr *StoragePointer
@@ -223,23 +224,26 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157},
+					[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				},
-				spaceUsed:   25,
-				maxCapacity: 25,
-				blockSize:   25,
+				spaceUsed:   28,
+				maxCapacity: 30,
+				blockSize:   30,
+				lastRecordInsertedPtr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 1,
+				},
 			},
 			args: args{
 				ptr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 4,
+					RecordPtr: 1,
 				},
 			},
 			wantErr: false,
 			wantStore: []block{
 				nil,
 				nil,
-				[]byte{0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
 		},
 		{
@@ -248,23 +252,28 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 0, 0, 38, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157},
+					[]byte{55, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 2, 1},
 				},
-				spaceUsed:   38,
-				maxCapacity: 40,
-				blockSize:   38,
+				spaceUsed:   55,
+				maxCapacity: 500,
+				blockSize:   55,
+				lastRecordInsertedPtr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 28,
+				},
 			},
 			args: args{
 				ptr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 4,
+					RecordPtr: 1,
 				},
 			},
 			wantErr: false,
 			wantStore: []block{
 				nil,
 				nil,
-				[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
 		},
 		{
@@ -273,25 +282,28 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 0, 0, 32, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179},
-					[]byte{0, 0, 0, 10, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[]byte{32, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 116, 116, 48},
+					[]byte{24, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 2, 1},
 				},
-				spaceUsed:   42,
+				spaceUsed:   56,
 				maxCapacity: 100,
 				blockSize:   32,
+				lastRecordInsertedPtr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 28,
+				},
 			},
 			args: args{
 				ptr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 4,
+					RecordPtr: 1,
 				},
 			},
 			wantErr: false,
 			wantStore: []block{
 				nil,
 				nil,
-				[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				[]byte{0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
 		},
 		{
@@ -300,35 +312,39 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{0, 0, 0, 32, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179},
-					[]byte{0, 0, 0, 10, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[]byte{32, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 116, 116, 48},
+					[]byte{24, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 2, 1},
 				},
-				spaceUsed:   42,
+				spaceUsed:   56,
 				maxCapacity: 100,
 				blockSize:   32,
+				lastRecordInsertedPtr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 28,
+				},
 			},
 			args: args{
 				ptr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 21,
+					RecordPtr: 28,
 				},
 			},
 			wantErr: false,
 			wantStore: []block{
 				nil,
 				nil,
-				[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				[]byte{0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &storageImpl{
-				store:       tt.fields.store,
-				spaceUsed:   tt.fields.spaceUsed,
-				maxCapacity: tt.fields.maxCapacity,
-				blockSize:   tt.fields.blockSize,
+				store:                 tt.fields.store,
+				spaceUsed:             tt.fields.spaceUsed,
+				maxCapacity:           tt.fields.maxCapacity,
+				blockSize:             tt.fields.blockSize,
+				lastRecordInsertedPtr: tt.fields.lastRecordInsertedPtr,
 			}
 			if err := s.DeleteRecord(tt.args.ptr); (err != nil) != tt.wantErr {
 				t.Errorf("DeleteRecord() error = %v, wantErr %v", err, tt.wantErr)

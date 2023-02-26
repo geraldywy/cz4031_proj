@@ -4,16 +4,17 @@ import (
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
 
-// every record is a fixed at 17 bytes
-const RecordSize = 17
+// byte to identify a record
+const RecordIdentifier = 0
 
-type SerializedRecord [17]byte
+// every record is a fixed at 17 bytes + 1 byte to indicate the size 17.
+const RecordSize = 27
 
 type Record interface {
+	Serialize() []byte
 	TConst() string
 	AvgRating() float32
 	NumVotes() int32
-	Serialize() SerializedRecord
 }
 
 var _ Record = (*recordImpl)(nil)
@@ -26,11 +27,11 @@ func NewRecord(tconst string, avgRating float32, numVotes int32) Record {
 	}
 }
 
-func NewRecordFromBytes(buf SerializedRecord) Record {
+func NewRecordFromBytes(buf []byte) Record {
 	return &recordImpl{
-		tconst:        string(buf[:9]),
-		averageRating: utils.Float32FromBytes(utils.SliceTo4ByteArray(buf[9:13])),
-		numVotes:      utils.Int32FromBytes(utils.SliceTo4ByteArray(buf[13:])),
+		tconst:        string(buf[1:10]),
+		averageRating: utils.Float32FromBytes(utils.SliceTo4ByteArray(buf[10:14])),
+		numVotes:      utils.Int32FromBytes(utils.SliceTo4ByteArray(buf[14:18])),
 	}
 }
 
@@ -40,9 +41,10 @@ type recordImpl struct {
 	numVotes      int32
 }
 
-func (r *recordImpl) Serialize() SerializedRecord {
-	var buf SerializedRecord
-	j := 0
+func (r *recordImpl) Serialize() []byte {
+	buf := make([]byte, RecordSize)
+	buf[0] = RecordIdentifier
+	j := 1
 	for i := range r.tconst {
 		buf[j] = r.tconst[i]
 		j += 1
@@ -55,6 +57,8 @@ func (r *recordImpl) Serialize() SerializedRecord {
 		buf[j] = b
 		j += 1
 	}
+
+	// The storage pointer bytes [18:] is to be implemented after knowing the storage pointer
 
 	return buf
 }
