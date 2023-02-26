@@ -4,6 +4,9 @@ import (
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
 
+// every record is a fixed at 17 bytes
+const RecordSize = 17
+
 type SerializedRecord [17]byte
 
 type Record interface {
@@ -32,7 +35,7 @@ func NewRecordFromBytes(buf SerializedRecord) Record {
 }
 
 type recordImpl struct {
-	tconst        string // fixed size string, size 7 ascii characters only
+	tconst        string // fixed size string, size 9 ascii characters only
 	averageRating float32
 	numVotes      int32
 }

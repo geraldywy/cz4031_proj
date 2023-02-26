@@ -6,7 +6,7 @@ import (
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
 
-// Disk Storage is simulated in this package. When we say disk, we refer to the in memory disk, all data is
+// Disk Storage is simulated in this package. When we say disk, we refer to a simulated in memory disk, all data is
 // not persisted to the physical disk.
 
 // All records have fixed length, no need to separate records when packing into blocks.
@@ -21,15 +21,18 @@ type StoragePointer struct {
 	RecordPtr int
 }
 
+// ttconst -> storage pointer
+type StoragePointers map[string]*StoragePointer
+
 type Storage interface {
 	// InsertRecord stores a new record on "disk", returns the offset to read the data.
 	InsertRecord(record record.Record) (*StoragePointer, error)
 	// ReadRecord returns a record given a pointer to start reading from.
 	ReadRecord(ptr *StoragePointer) (record.Record, error)
-	//// DeleteRecord deletes a record given a pointer. This is an O(1) operation.
-	//DeleteRecord(ptr StoragePointer) error
-	//// UpdateRecord updates a record given a pointer.
-	//UpdateRecord(ptr StoragePointer) error
+	// DeleteRecord deletes a record given a pointer. This is an O(1) operation.
+	DeleteRecord(ptr *StoragePointer) error
+	// UpdateRecord updates a record given a pointer, also indicate if the update is used to write 0 byte to update block space used book-keeping
+	UpdateRecord(ptr *StoragePointer, newRecord record.Record, isDel bool) error
 }
 
 var _ Storage = (*storageImpl)(nil)
@@ -42,14 +45,25 @@ type storageImpl struct {
 	spaceUsed   int
 	maxCapacity int
 	blockSize   int
+
+	// indexing
+	avgRatingIndexing     bool
+	avgRatingIndexMapping map[float32]StoragePointers
+
+	numVotesIndexing     bool
+	numVotesIndexMapping map[int32]StoragePointers
 }
 
 func NewStorage(maxCapacity int, blockSize int) Storage {
 	return &storageImpl{
-		store:       make([]block, 0),
-		spaceUsed:   0,
-		maxCapacity: maxCapacity,
-		blockSize:   blockSize,
+		store:                 make([]block, 0),
+		spaceUsed:             0,
+		maxCapacity:           maxCapacity,
+		blockSize:             blockSize,
+		avgRatingIndexing:     false,
+		avgRatingIndexMapping: make(map[float32]StoragePointers),
+		numVotesIndexing:      false,
+		numVotesIndexMapping:  make(map[int32]StoragePointers),
 	}
 }
 
@@ -79,6 +93,20 @@ func (b *block) read(from, till int, buf *[]byte) int {
 	i := 0
 	for from < till && from < len(*b) {
 		(*buf)[i] = (*b)[from]
+		i++
+		from++
+	}
+
+	return i
+}
+
+func (b *block) write(from, till int, buf []byte) int {
+	if buf == nil {
+		return 0
+	}
+	i := 0
+	for from < till && from < len(*b) {
+		(*b)[from] = buf[i]
 		i++
 		from++
 	}
@@ -141,6 +169,19 @@ func (s *storageImpl) InsertRecord(record record.Record) (*StoragePointer, error
 	}
 	lastBlk.updateSize(j)
 
+	if s.numVotesIndexing {
+		if s.numVotesIndexMapping[record.NumVotes()] == nil {
+			s.numVotesIndexMapping[record.NumVotes()] = make(map[string]*StoragePointer)
+		}
+		s.numVotesIndexMapping[record.NumVotes()][record.TConst()] = ptr
+	}
+	if s.avgRatingIndexing {
+		if s.avgRatingIndexMapping[record.AvgRating()] == nil {
+			s.avgRatingIndexMapping[record.AvgRating()] = make(map[string]*StoragePointer)
+		}
+		s.avgRatingIndexMapping[record.AvgRating()][record.TConst()] = ptr
+	}
+
 	return ptr, nil
 }
 
@@ -164,4 +205,88 @@ func (s *storageImpl) ReadRecord(ptr *StoragePointer) (record.Record, error) {
 		recordStart = blockHeaderSize
 	}
 	return record.NewRecordFromBytes(buf), nil
+}
+
+func (s *storageImpl) DeleteRecord(ptr *StoragePointer) error {
+	if ptr.BlockPtr >= len(s.store) || len(s.store) == 0 {
+		return ErrBlockNotExist
+	}
+
+	// get head of last record
+	lastBlkIdx := len(s.store) - 1
+	lastBlk := s.store[lastBlkIdx]
+	lastRecordStart := lastBlk.spaceUsed() - record.RecordSize
+	if lastRecordStart < 4 {
+		if lastRecordStart < 0 {
+			lastRecordStart = -lastRecordStart + 4
+		}
+		lastBlkIdx = len(s.store) - 2
+		lastBlk = s.store[lastBlkIdx]
+		lastRecordStart = lastBlk.spaceUsed() - lastRecordStart
+	}
+
+	delRecord, err := s.ReadRecord(ptr)
+	if err != nil {
+		return err
+	}
+	lastPtr := &StoragePointer{
+		BlockPtr:  lastBlkIdx,
+		RecordPtr: int(lastRecordStart),
+	}
+	lastRecord, err := s.ReadRecord(lastPtr)
+	if err != nil {
+		return err
+	}
+	// update indexing, remove index for del record, update index for lastRecord
+	// note: order matters, in the case where we are deleting the only record
+	// we first insert old, then delete new so that if new = old, deletion still occurs
+	if s.numVotesIndexing {
+		s.numVotesIndexMapping[lastRecord.NumVotes()][lastRecord.TConst()] = ptr
+		delete(s.numVotesIndexMapping[delRecord.NumVotes()], delRecord.TConst())
+		if len(s.numVotesIndexMapping[delRecord.NumVotes()]) == 0 {
+			delete(s.numVotesIndexMapping, delRecord.NumVotes())
+		}
+	}
+	if s.avgRatingIndexing {
+		s.avgRatingIndexMapping[lastRecord.AvgRating()][lastRecord.TConst()] = ptr
+		delete(s.avgRatingIndexMapping[delRecord.AvgRating()], delRecord.TConst())
+		if len(s.avgRatingIndexMapping[delRecord.AvgRating()]) == 0 {
+			delete(s.avgRatingIndexMapping, delRecord.AvgRating())
+		}
+	}
+
+	if err := s.UpdateRecord(ptr, lastRecord, false); err != nil {
+		return err
+	}
+	if err := s.UpdateRecord(lastPtr, record.NewRecordFromBytes(record.SerializedRecord{}), true); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// UpdateRecord updates a record byte with the new content.
+func (s *storageImpl) UpdateRecord(ptr *StoragePointer, newRecord record.Record, isDel bool) error {
+	// record must exist first
+	if _, err := s.ReadRecord(ptr); err != nil {
+		return err
+	}
+
+	var i, blockOffset int
+	buf := newRecord.Serialize()
+	writePtr := ptr.RecordPtr
+	for i < len(buf) {
+		blk := s.store[ptr.BlockPtr+blockOffset]
+		cnt := blk.write(writePtr, writePtr+len(buf)-i, buf[i:])
+		if cnt == 0 {
+			return ErrRecordNotExist
+		}
+		if isDel {
+			blk.updateSize(blk.spaceUsed() - int32(cnt))
+		}
+		i += cnt
+		blockOffset++
+		writePtr = blockHeaderSize
+	}
+	return nil
 }

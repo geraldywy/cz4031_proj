@@ -199,3 +199,143 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 		})
 	}
 }
+
+func Test_storageImpl_DeleteRecord(t *testing.T) {
+	type fields struct {
+		store       []block
+		spaceUsed   int
+		maxCapacity int
+		blockSize   int
+	}
+	type args struct {
+		ptr *StoragePointer
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		wantErr   bool
+		wantStore []block
+	}{
+		{
+			name: "delete only record",
+			fields: fields{
+				store: []block{
+					nil,
+					nil,
+					[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157},
+				},
+				spaceUsed:   25,
+				maxCapacity: 25,
+				blockSize:   25,
+			},
+			args: args{
+				ptr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 4,
+				},
+			},
+			wantErr: false,
+			wantStore: []block{
+				nil,
+				nil,
+				[]byte{0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			},
+		},
+		{
+			name: "delete one record within a block",
+			fields: fields{
+				store: []block{
+					nil,
+					nil,
+					[]byte{0, 0, 0, 38, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157},
+				},
+				spaceUsed:   38,
+				maxCapacity: 40,
+				blockSize:   38,
+			},
+			args: args{
+				ptr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 4,
+				},
+			},
+			wantErr: false,
+			wantStore: []block{
+				nil,
+				nil,
+				[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			},
+		},
+		{
+			name: "delete one record, update across blocks",
+			fields: fields{
+				store: []block{
+					nil,
+					nil,
+					[]byte{0, 0, 0, 32, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179},
+					[]byte{0, 0, 0, 10, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+				spaceUsed:   42,
+				maxCapacity: 100,
+				blockSize:   32,
+			},
+			args: args{
+				ptr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 4,
+				},
+			},
+			wantErr: false,
+			wantStore: []block{
+				nil,
+				nil,
+				[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			},
+		},
+		{
+			name: "delete one record stored across blocks",
+			fields: fields{
+				store: []block{
+					nil,
+					nil,
+					[]byte{0, 0, 0, 32, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179},
+					[]byte{0, 0, 0, 10, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+				spaceUsed:   42,
+				maxCapacity: 100,
+				blockSize:   32,
+			},
+			args: args{
+				ptr: &StoragePointer{
+					BlockPtr:  2,
+					RecordPtr: 21,
+				},
+			},
+			wantErr: false,
+			wantStore: []block{
+				nil,
+				nil,
+				[]byte{0, 0, 0, 21, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &storageImpl{
+				store:       tt.fields.store,
+				spaceUsed:   tt.fields.spaceUsed,
+				maxCapacity: tt.fields.maxCapacity,
+				blockSize:   tt.fields.blockSize,
+			}
+			if err := s.DeleteRecord(tt.args.ptr); (err != nil) != tt.wantErr {
+				t.Errorf("DeleteRecord() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(s.store, tt.wantStore) {
+				t.Errorf("DeleteRecord() store assertion failed got: %v, want %v", s.store, tt.wantStore)
+			}
+		})
+	}
+}
