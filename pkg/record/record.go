@@ -23,6 +23,10 @@ func NewRecord(tconst string, avgRating float32, numVotes int32) Record {
 }
 
 func NewRecordFromBytes(buf []byte) Record {
+	if buf == nil {
+		return nil
+	}
+
 	return &recordImpl{
 		tconst:        string(buf[1:10]),
 		averageRating: utils.Float32FromBytes(utils.SliceTo4ByteArray(buf[10:14])),

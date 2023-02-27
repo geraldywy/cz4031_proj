@@ -233,7 +233,7 @@ func (s *storageImpl) Insert(item Storable) (*storage_ptr.StoragePointer, error)
 
 func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 	if ptr == nil {
-		return nil, ErrReadNotExist
+		return nil, nil
 	}
 	if ptr.BlockPtr >= uint32(len(s.store)) {
 		return nil, ErrBlockNotExist
@@ -439,6 +439,10 @@ func NewBPTNode(m uint8, isLeaf bool) *BPTNode {
 }
 
 func NewBPTNodeFromBytes(buf []byte) *BPTNode {
+	if buf == nil {
+		return nil
+	}
+
 	isLeaf := false
 	if buf[2] == 1 {
 		isLeaf = true
@@ -479,6 +483,10 @@ func (ir *IndexedRecord) Serialize() []byte {
 }
 
 func IndexedRecordFromBytes(buf []byte) *IndexedRecord {
+	if buf == nil {
+		return nil
+	}
+
 	return &IndexedRecord{
 		RecordPtr: storage_ptr.NewStoragePointerFromBytes(buf[1 : storage_ptr.StoragePtrSize+1]),
 		NxtPtr:    storage_ptr.NewStoragePointerFromBytes(buf[1+storage_ptr.StoragePtrSize:]),

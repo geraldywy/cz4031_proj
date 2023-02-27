@@ -5,7 +5,6 @@ import (
 	"github.com/geraldywy/cz4031_proj1/pkg/record"
 	"github.com/geraldywy/cz4031_proj1/pkg/storage"
 	"github.com/geraldywy/cz4031_proj1/pkg/storage_ptr"
-	"math"
 )
 
 var (
@@ -15,9 +14,9 @@ var (
 type BPTree interface {
 	Insert(key uint32, ptr *storage_ptr.StoragePointer) error
 	Search(key uint32) (record.Record, error)
+	SearchRange(from uint32, to uint32) ([]record.Record, error)
 	//// DeleteAll deletes all indexes with this key
 	//DeleteAll(key uint32) error
-	//SearchRange(from uint32, to uint32) ([]record.Record, error)
 }
 
 var _ BPTree = (*bptree)(nil)
@@ -30,6 +29,51 @@ type bptree struct {
 
 func NewBPTree(m uint8, store storage.Storage) BPTree {
 	return &bptree{m: m, store: store, rootNodePtr: nil}
+}
+
+func (b *bptree) SearchRange(from uint32, to uint32) ([]record.Record, error) {
+	leafNode, _, err := b.searchLeaf(from)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]record.Record, 0)
+	idx := 0
+	for leafNode != nil {
+		v := leafNode.Keys[idx]
+		if v > to {
+			break
+		} else if v >= from {
+			buf, err := b.store.Read(leafNode.ChildPtrs[idx])
+			if err != nil {
+				return nil, err
+			}
+			idxedRec := storage.IndexedRecordFromBytes(buf)
+			for idxedRec != nil {
+				buf, err := b.store.Read(idxedRec.RecordPtr)
+				if err != nil {
+					return nil, err
+				}
+				res = append(res, record.NewRecordFromBytes(buf))
+				buf, err = b.store.Read(idxedRec.NxtPtr)
+				if err != nil {
+					return nil, err
+				}
+				idxedRec = storage.IndexedRecordFromBytes(buf)
+			}
+		}
+		idx++
+		if idx == int(leafNode.NumKeys) {
+			buf, err := b.store.Read(leafNode.ChildPtrs[idx])
+			if err != nil {
+				return nil, err
+			}
+			leafNode = storage.NewBPTNodeFromBytes(buf)
+			idx = 0
+		}
+	}
+
+	return res, nil
 }
 
 // ptr here refers to the record pointer, not the indexedRecord ptr
@@ -123,8 +167,8 @@ func (b *bptree) searchLeaf(key uint32) (*storage.BPTNode, *storage_ptr.StorageP
 		keys := tmp.Keys
 		// TODO: maybe change linear to binary search
 		var idx int
-		for i := range append(keys, math.MaxUint32) {
-			if tmp.ChildPtrs[i+1] == nil || key < keys[i] {
+		for i := 0; i < int(tmp.NumKeys); i++ {
+			if key < keys[i] {
 				break
 			}
 			idx = i
