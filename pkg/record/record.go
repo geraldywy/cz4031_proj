@@ -5,9 +5,6 @@ import (
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
 
-// every record is a fixed at 17 bytes + 1 byte to indicate the size + storage pointer 5.
-const RecordSize = 23
-
 type Record interface {
 	Serialize() []byte
 	TConst() string
@@ -40,7 +37,7 @@ type recordImpl struct {
 }
 
 func (r *recordImpl) Serialize() []byte {
-	buf := make([]byte, RecordSize)
+	buf := make([]byte, consts.RecordSize)
 	buf[0] = consts.RecordIdentifier
 	j := 1
 	for i := range r.tconst {
@@ -55,8 +52,6 @@ func (r *recordImpl) Serialize() []byte {
 		buf[j] = b
 		j += 1
 	}
-
-	// The storage pointer bytes [18:] is to be implemented after knowing the storage pointer
 
 	return buf
 }

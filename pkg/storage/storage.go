@@ -3,7 +3,6 @@ package storage
 import (
 	"errors"
 	"github.com/geraldywy/cz4031_proj1/pkg/consts"
-	"github.com/geraldywy/cz4031_proj1/pkg/record"
 	"github.com/geraldywy/cz4031_proj1/pkg/storage_ptr"
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
@@ -14,23 +13,64 @@ type Storable interface {
 
 type Storage interface {
 	//// internal methods
-	//insert(item Storable) (*storage_ptr.StoragePointer, error)
-	//read(ptr *storage_ptr.StoragePointer) ([]byte, error)
-	//delete(delPtr *storage_ptr.StoragePointer, newPtr *storage_ptr.StoragePointer, delPrev *storage_ptr.StoragePointer) error
-	Copy(ptr *storage_ptr.StoragePointer, buf []byte, isDel bool) error
+	Insert(item Storable) (*storage_ptr.StoragePointer, error)
+	Read(ptr *storage_ptr.StoragePointer) ([]byte, error)
+	Delete(delPtr *storage_ptr.StoragePointer) error
+	copy(ptr *storage_ptr.StoragePointer, buf []byte, isDel bool) error
+	Update(ptr *storage_ptr.StoragePointer, updatedBuf []byte) error
 
-	// InsertRecord stores a new record on "disk", returns the offset to read the data.
-	InsertRecord(record record.Record) (*storage_ptr.StoragePointer, error)
-	// ReadRecord returns a record given a pointer to start reading from.
-	ReadRecord(ptr *storage_ptr.StoragePointer) (record.Record, error)
-	// DeleteRecord deletes a record given a pointer. This is an O(1) operation.
-	DeleteRecord(ptr *storage_ptr.StoragePointer) error
-
-	InsertBPTNode(node *BPTNode) (*storage_ptr.StoragePointer, error)
-	UpdateBPTNode(ptr *storage_ptr.StoragePointer, updatedNode *BPTNode) error
-	DeleteBPTNode(ptr *storage_ptr.StoragePointer) error
-	ReadBPTNode(ptr *storage_ptr.StoragePointer) (*BPTNode, error)
+	//// InsertRecord stores a new record on "disk", returns the offset to read the data.
+	//InsertRecord(record record.Record) (*storage_ptr.StoragePointer, error)
+	//// ReadRecord returns a record given a pointer to start reading from.
+	//ReadRecord(ptr *storage_ptr.StoragePointer) (record.Record, error)
+	//// DeleteRecord deletes a record given a pointer. This is an O(1) operation.
+	//DeleteRecord(ptr *storage_ptr.StoragePointer) error
+	//
+	//InsertBPTNode(node *BPTNode) (*storage_ptr.StoragePointer, error)
+	////UpdateBPTNode(ptr *storage_ptr.StoragePointer, updatedNode *BPTNode) error
+	//DeleteBPTNode(ptr *storage_ptr.StoragePointer) error
+	//ReadBPTNode(ptr *storage_ptr.StoragePointer) (*BPTNode, error)
+	//
+	//InsertIndexedRecord(idxedRecord *IndexedRecord) (*storage_ptr.StoragePointer, error)
+	//ReadIndexedRecord(ptr *storage_ptr.StoragePointer) (*IndexedRecord, error)
+	//UpdateIndexedRecord(ptr *storage_ptr.StoragePointer, updatedIdxRec *IndexedRecord) error
 }
+
+//func (s *storageImpl) InsertIndexedRecord(idxedRecord *IndexedRecord) (*storage_ptr.StoragePointer, error) {
+//	ptr, err := s.insert(idxedRecord)
+//	if err != nil {
+//		return nil, err
+//	}
+//	//s.lastIndexedRecordInserted = ptr
+//
+//	return ptr, nil
+//}
+//
+//func (s *storageImpl) ReadIndexedRecord(ptr *storage_ptr.StoragePointer) (*IndexedRecord, error) {
+//	buf, err := s.read(ptr)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return IndexedRecordFromBytes(buf), nil
+//}
+
+//func (s *storageImpl) UpdateIndexedRecord(ptr *storage_ptr.StoragePointer, updatedIdxRec *IndexedRecord) error {
+//	updatedBuf := updatedIdxRec.Serialize()
+//	// copy over the prev indexed rec ptr into the updated buf which only updated content
+//	buf, err := s.read(ptr)
+//	if err != nil {
+//		return err
+//	}
+//	for i := len(buf) - storage_ptr.StoragePtrSize; i < len(buf); i++ {
+//		updatedBuf[i] = buf[i]
+//	}
+//	if err := s.copy(ptr, updatedBuf, false); err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
 // Disk Storage is simulated in this package. When we say disk, we refer to a simulated in memory disk, all data is
 // not persisted to the physical disk.
@@ -52,18 +92,20 @@ type storageImpl struct {
 	maxCapacity int
 	blockSize   int
 
-	lastRecordInsertedPtr *storage_ptr.StoragePointer
-	lastBPTNodeInserted   *storage_ptr.StoragePointer
+	//lastRecordInsertedPtr *storage_ptr.StoragePointer
+	// do not use shifting for bpt node deletion, see DeleteBPTNode() method for explanation
+	//lastBPTNodeInserted       *storage_ptr.StoragePointer
+	//lastIndexedRecordInserted *storage_ptr.StoragePointer
 }
 
 func NewStorage(maxCapacity int, blockSize int) Storage {
 	return &storageImpl{
-		store:                 make([]block, 0),
-		spaceUsed:             0,
-		maxCapacity:           maxCapacity,
-		blockSize:             blockSize,
-		lastRecordInsertedPtr: nil,
-		lastBPTNodeInserted:   nil,
+		store:       make([]block, 0),
+		spaceUsed:   0,
+		maxCapacity: maxCapacity,
+		blockSize:   blockSize,
+		//lastRecordInsertedPtr: nil,
+		//lastBPTNodeInserted:   nil,
 	}
 }
 
@@ -137,7 +179,7 @@ var (
 	ErrUnrecognisedDiskData    = errors.New("unrecognised identifying byte")
 )
 
-func (s *storageImpl) insert(item Storable) (*storage_ptr.StoragePointer, error) {
+func (s *storageImpl) Insert(item Storable) (*storage_ptr.StoragePointer, error) {
 	buf := item.Serialize()
 	if len(s.store) == 0 || int(s.store[len(s.store)-1].spaceUsed()) == s.blockSize {
 		if s.spaceUsed+utils.Max(s.blockSize, len(buf)) > s.maxCapacity {
@@ -154,14 +196,14 @@ func (s *storageImpl) insert(item Storable) (*storage_ptr.StoragePointer, error)
 		BlockPtr:  uint32(len(s.store) - 1),
 		RecordPtr: j,
 	}
-	// write back prev storage pointer location
-	if s.lastRecordInsertedPtr != nil {
-		x := len(buf) - storage_ptr.StoragePtrSize
-		for _, b := range s.lastRecordInsertedPtr.Serialize() {
-			buf[x] = b
-			x++
-		}
-	}
+	//// write back prev storage pointer location
+	//if prevPtr != nil {
+	//	x := len(buf) - storage_ptr.StoragePtrSize
+	//	for _, b := range prevPtr.Serialize() {
+	//		buf[x] = b
+	//		x++
+	//	}
+	//}
 	for _, v := range buf {
 		if int(j) == s.blockSize {
 			lastBlk.updateSize(j)
@@ -179,17 +221,17 @@ func (s *storageImpl) insert(item Storable) (*storage_ptr.StoragePointer, error)
 	return ptr, nil
 }
 
-func (s *storageImpl) InsertRecord(record record.Record) (*storage_ptr.StoragePointer, error) {
-	ptr, err := s.insert(record)
-	if err != nil {
-		return nil, err
-	}
-	s.lastRecordInsertedPtr = ptr
+//func (s *storageImpl) InsertRecord(record record.Record) (*storage_ptr.StoragePointer, error) {
+//	ptr, err := s.insert(record)
+//	if err != nil {
+//		return nil, err
+//	}
+//	//s.lastRecordInsertedPtr = ptr
+//
+//	return ptr, nil
+//}
 
-	return ptr, nil
-}
-
-func (s *storageImpl) read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
+func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 	if ptr == nil {
 		return nil, nil
 	}
@@ -200,7 +242,7 @@ func (s *storageImpl) read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 	var size int
 	switch s.store[ptr.BlockPtr][ptr.RecordPtr] {
 	case consts.RecordIdentifier:
-		size = record.RecordSize
+		size = consts.RecordSize
 	case consts.NodeIdentifier:
 		bptr := ptr.BlockPtr
 		rptr := ptr.RecordPtr + 1
@@ -208,8 +250,8 @@ func (s *storageImpl) read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 			bptr++
 			rptr = blockHeaderSize
 		}
-		m := int(s.store[bptr][rptr])                                                      // number of keys in a node
-		size = 1 + 1 + 1 + m*(storage_ptr.StoragePtrSize+4) + storage_ptr.StoragePtrSize*2 // ident, m_val, is_leaf, m*(storage_ptr + val) + storage_ptr + storage_ptr
+		m := int(s.store[bptr][rptr])                                                      // number of Keys in a node
+		size = 1 + 1 + 1 + m*(storage_ptr.StoragePtrSize+4) + storage_ptr.StoragePtrSize*2 // ident, m_val, is_leaf, M*(storage_ptr + val) + storage_ptr + storage_ptr for parent node
 	case consts.IndexedRecordIdentifier:
 		size = consts.IndexedRecordSize
 	default:
@@ -235,39 +277,23 @@ func (s *storageImpl) read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 	return buf, nil
 }
 
-func (s *storageImpl) ReadRecord(ptr *storage_ptr.StoragePointer) (record.Record, error) {
-	buf, err := s.read(ptr)
-	if err != nil {
-		return nil, err
-	}
+//func (s *storageImpl) ReadRecord(ptr *storage_ptr.StoragePointer) (record.Record, error) {
+//	buf, err := s.read(ptr)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return record.NewRecordFromBytes(buf), nil
+//}
 
-	return record.NewRecordFromBytes(buf), nil
-}
-
-func (s *storageImpl) delete(delPtr, lastPtr, delPrev *storage_ptr.StoragePointer) error {
-	if _, err := s.read(delPtr); err != nil {
-		return err
-	}
-	last, err := s.read(lastPtr)
+func (s *storageImpl) Delete(delPtr *storage_ptr.StoragePointer) error {
+	buf, err := s.Read(delPtr)
 	if err != nil {
 		return err
 	}
-	var prevPrevPtrBuf []byte
-	if delPrev == nil {
-		prevPrevPtrBuf = make([]byte, storage_ptr.StoragePtrSize)
-	} else {
-		prevPrevPtrBuf = delPrev.Serialize()
-	}
-	x := len(last) - storage_ptr.StoragePtrSize
-	for _, b := range prevPrevPtrBuf {
-		last[x] = b
-		x += 1
-	}
-	if err := s.Copy(delPtr, last, false); err != nil {
-		return err
-	}
-	tmp := make([]byte, len(last))
-	if err := s.Copy(lastPtr, tmp, true); err != nil {
+
+	tmp := make([]byte, len(buf))
+	if err := s.copy(delPtr, tmp, true); err != nil {
 		return err
 	}
 
@@ -280,26 +306,30 @@ func (s *storageImpl) delete(delPtr, lastPtr, delPrev *storage_ptr.StoragePointe
 	return nil
 }
 
-func (s *storageImpl) DeleteRecord(delPtr *storage_ptr.StoragePointer) error {
-	delBuf, err := s.read(delPtr)
-	if err != nil {
-		return err
-	}
-
-	buf, err := s.read(s.lastRecordInsertedPtr)
-	if err != nil {
-		return err
-	}
-
-	delPrev := storage_ptr.NewStoragePointerFromBytes(delBuf[len(delBuf)-storage_ptr.StoragePtrSize:])
-	prevPrevPtr := storage_ptr.NewStoragePointerFromBytes(buf[len(buf)-storage_ptr.StoragePtrSize:])
-	s.delete(delPtr, s.lastRecordInsertedPtr, delPrev)
-	s.lastRecordInsertedPtr = prevPrevPtr
-
-	return nil
+func (s *storageImpl) Update(ptr *storage_ptr.StoragePointer, updatedBuf []byte) error {
+	return s.copy(ptr, updatedBuf, false)
 }
 
-func (s *storageImpl) Copy(dst *storage_ptr.StoragePointer, buf []byte, isDel bool) error {
+//func (s *storageImpl) DeleteRecord(delPtr *storage_ptr.StoragePointer) error {
+//	delBuf, err := s.read(delPtr)
+//	if err != nil {
+//		return err
+//	}
+//
+//	buf, err := s.read(s.lastRecordInsertedPtr)
+//	if err != nil {
+//		return err
+//	}
+//
+//	delPrev := storage_ptr.NewStoragePointerFromBytes(delBuf[len(delBuf)-storage_ptr.StoragePtrSize:])
+//	prevPrevPtr := storage_ptr.NewStoragePointerFromBytes(buf[len(buf)-storage_ptr.StoragePtrSize:])
+//	s.delete(delPtr, s.lastRecordInsertedPtr, delPrev)
+//	s.lastRecordInsertedPtr = prevPrevPtr
+//
+//	return nil
+//}
+
+func (s *storageImpl) copy(dst *storage_ptr.StoragePointer, buf []byte, isDel bool) error {
 	var blockOffset uint32
 	writePtr := int(dst.RecordPtr)
 
@@ -321,86 +351,73 @@ func (s *storageImpl) Copy(dst *storage_ptr.StoragePointer, buf []byte, isDel bo
 	return nil
 }
 
-func (s *storageImpl) InsertBPTNode(node *BPTNode) (*storage_ptr.StoragePointer, error) {
-	ptr, err := s.insert(node)
-	if err != nil {
-		return nil, err
-	}
-	s.lastBPTNodeInserted = ptr
+//func (s *storageImpl) InsertBPTNode(node *BPTNode) (*storage_ptr.StoragePointer, error) {
+//	ptr, err := s.insert(node, nil)
+//	if err != nil {
+//		return nil, err
+//	}
+//	//s.lastBPTNodeInserted = ptr
+//
+//	return ptr, nil
+//}
+//
+//func (s *storageImpl) ReadBPTNode(ptr *storage_ptr.StoragePointer) (*BPTNode, error) {
+//	buf, err := s.read(ptr)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return NewBPTNodeFromBytes(buf), nil
+//}
 
-	return ptr, nil
-}
+//func (s *storageImpl) UpdateBPTNode(ptr *storage_ptr.StoragePointer, updatedNode *BPTNode) error {
+//	updatedBuf := updatedNode.Serialize()
+//	buf, err := s.read(ptr)
+//	if err != nil {
+//		return err
+//	}
+//	for i := len(buf) - storage_ptr.StoragePtrSize; i < len(buf); i++ {
+//		updatedBuf[i] = buf[i]
+//	}
+//	if err := s.Copy(ptr, updatedBuf, false); err != nil {
+//		return err
+//	}
+//
+//	return nil
+//}
 
-func (s *storageImpl) ReadBPTNode(ptr *storage_ptr.StoragePointer) (*BPTNode, error) {
-	buf, err := s.read(ptr)
-	if err != nil {
-		return nil, err
-	}
+//func (s *storageImpl) DeleteBPTNode(ptr *storage_ptr.StoragePointer) error {
+//	// note: cannot do the shifting, because the last bpt node ptr shifted to fill the deleted space
+//	// might still be referenced by another bpt node, so for bpt node deletion, we do not fill the void.
+//	//TODO implement me
+//	panic("implement me")
+//}
 
-	return NewBPTNodeFromBytes(buf), nil
-}
-
-func (s *storageImpl) UpdateBPTNode(ptr *storage_ptr.StoragePointer, updatedNode *BPTNode) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (s *storageImpl) DeleteBPTNode(ptr *storage_ptr.StoragePointer) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-type BPTreeNode interface {
-	Storable
-	IsLeafNode() bool
-}
-
-var _ BPTreeNode = (*BPTNode)(nil)
+var _ Storable = (*BPTNode)(nil)
 
 type BPTNode struct {
-	m         uint8                         // number of child
-	keys      []uint32                      // size m
-	childPtrs []*storage_ptr.StoragePointer // size m+1
+	M         uint8                         // number of child
+	Keys      []uint32                      // size M
+	ChildPtrs []*storage_ptr.StoragePointer // size M+1
 
-	isLeafNode bool
+	IsLeafNode bool
 }
-
-// adds a key into this node
-func (b *BPTNode) AddKey(key uint32, rec record.Record, store Storage) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-//func (b *BPTNode) Search(key uint32) ([]record.Record, error) {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (b *BPTNode) DeleteAll(key uint32) error {
-//	//TODO implement me
-//	panic("implement me")
-//}
-//
-//func (b *BPTNode) SearchRange(from uint32, to uint32) ([]record.Record, error) {
-//	//TODO implement me
-//	panic("implement me")
-//}
 
 func (b *BPTNode) Serialize() []byte {
 	buf := make([]byte, 0)
 	buf = append(buf, consts.NodeIdentifier)
-	buf = append(buf, b.m)
+	buf = append(buf, b.M)
 	isLeafByte := uint8(0)
-	if b.isLeafNode {
+	if b.IsLeafNode {
 		isLeafByte = 1
 	}
 	buf = append(buf, isLeafByte)
-	buf = append(buf, b.childPtrs[0].Serialize()...)
-	for i := range b.keys {
-		for _, x := range utils.UInt32ToBytes(b.keys[i]) {
+	buf = append(buf, b.ChildPtrs[0].Serialize()...)
+	for i := range b.Keys {
+		for _, x := range utils.UInt32ToBytes(b.Keys[i]) {
 			buf = append(buf, x)
 		}
-		buf = append(buf, b.childPtrs[i+1].Serialize()...)
+		buf = append(buf, b.ChildPtrs[i+1].Serialize()...)
 	}
 	for i := 0; i < storage_ptr.StoragePtrSize; i++ {
 		buf = append(buf, 0)
@@ -411,14 +428,14 @@ func (b *BPTNode) Serialize() []byte {
 
 func NewBPTNode(m uint8, isLeaf bool) *BPTNode {
 	// a key is identified to be in use with the following logic.
-	// if the node is an internal node, the key is surrounded by 2 non nil ptrs
+	// if the node is an internal node, the key is surrounded by 2 non nil ptrs / right ptr is non nil
 	// if the node is a leaf node, the key's left ptr is non nil
 
 	return &BPTNode{
-		m:          m,
-		keys:       make([]uint32, m),
-		childPtrs:  make([]*storage_ptr.StoragePointer, m+1),
-		isLeafNode: isLeaf,
+		M:          m,
+		Keys:       make([]uint32, m),
+		ChildPtrs:  make([]*storage_ptr.StoragePointer, m+1),
+		IsLeafNode: isLeaf,
 	}
 }
 
@@ -438,30 +455,32 @@ func NewBPTNodeFromBytes(buf []byte) *BPTNode {
 	children = append(children,
 		storage_ptr.NewStoragePointerFromBytes(buf[3+m*(storage_ptr.StoragePtrSize+4):3+(m+1)*(storage_ptr.StoragePtrSize+4)]))
 	return &BPTNode{
-		m:          m,
-		keys:       keys,
-		childPtrs:  children,
-		isLeafNode: isLeaf,
+		M:          m,
+		Keys:       keys,
+		ChildPtrs:  children,
+		IsLeafNode: isLeaf,
 	}
 }
 
-func (b *BPTNode) IsLeafNode() bool {
-	return b.isLeafNode
-}
-
 type IndexedRecord struct {
-	recordPtr *storage_ptr.StoragePointer
-	nxtPtr    *storage_ptr.StoragePointer
+	RecordPtr *storage_ptr.StoragePointer
+	NxtPtr    *storage_ptr.StoragePointer
 }
 
 func (ir *IndexedRecord) Serialize() []byte {
 	buf := make([]byte, 0)
 	buf = append(buf, consts.IndexedRecordIdentifier)
-	buf = append(buf, ir.recordPtr.Serialize()...)
-	buf = append(buf, ir.nxtPtr.Serialize()...)
+	buf = append(buf, ir.RecordPtr.Serialize()...)
+	buf = append(buf, ir.NxtPtr.Serialize()...)
+	for i := 0; i < storage_ptr.StoragePtrSize; i++ {
+		buf = append(buf, 0)
+	}
 	return buf
 }
 
-func (ir *IndexedRecord) IsLeafNode() bool {
-	return false
+func IndexedRecordFromBytes(buf []byte) *IndexedRecord {
+	return &IndexedRecord{
+		RecordPtr: storage_ptr.NewStoragePointerFromBytes(buf[1 : storage_ptr.StoragePtrSize+1]),
+		NxtPtr:    storage_ptr.NewStoragePointerFromBytes(buf[1+storage_ptr.StoragePtrSize:]),
+	}
 }
