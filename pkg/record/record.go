@@ -1,14 +1,12 @@
 package record
 
 import (
+	"github.com/geraldywy/cz4031_proj1/pkg/consts"
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
 
-// byte to identify a record
-const RecordIdentifier = 0
-
-// every record is a fixed at 17 bytes + 1 byte to indicate the size 17.
-const RecordSize = 27
+// every record is a fixed at 17 bytes + 1 byte to indicate the size + storage pointer 5.
+const RecordSize = 23
 
 type Record interface {
 	Serialize() []byte
@@ -43,7 +41,7 @@ type recordImpl struct {
 
 func (r *recordImpl) Serialize() []byte {
 	buf := make([]byte, RecordSize)
-	buf[0] = RecordIdentifier
+	buf[0] = consts.RecordIdentifier
 	j := 1
 	for i := range r.tconst {
 		buf[j] = r.tconst[i]

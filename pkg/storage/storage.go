@@ -2,7 +2,7 @@ package storage
 
 import (
 	"errors"
-	"github.com/geraldywy/cz4031_proj1/pkg/bptree"
+	"github.com/geraldywy/cz4031_proj1/pkg/consts"
 	"github.com/geraldywy/cz4031_proj1/pkg/record"
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
@@ -22,7 +22,7 @@ type Storable interface {
 // 1. block Ptr
 // 2. Record Ptr (The offset within a block)
 type StoragePointer struct {
-	BlockPtr  uint64
+	BlockPtr  uint32
 	RecordPtr uint8
 }
 
@@ -31,7 +31,7 @@ const StoragePtrSize = 9
 func (s *StoragePointer) Serialize() []byte {
 	buf := make([]byte, StoragePtrSize)
 	j := 0
-	for _, b := range utils.UInt64ToBytes(s.BlockPtr) {
+	for _, b := range utils.UInt32ToBytes(s.BlockPtr) {
 		buf[j] = b
 		j += 1
 	}
@@ -42,8 +42,8 @@ func (s *StoragePointer) Serialize() []byte {
 
 func NewStoragePointerFromBytes(buf []byte) *StoragePointer {
 	ptr := &StoragePointer{
-		BlockPtr:  utils.UInt64FromBytes(utils.SliceTo8ByteArray(buf[:8])),
-		RecordPtr: buf[8],
+		BlockPtr:  utils.UInt32FromBytes(utils.SliceTo4ByteArray(buf[:4])),
+		RecordPtr: buf[4],
 	}
 	if ptr.BlockPtr == 0 && ptr.RecordPtr == 0 {
 		return nil
@@ -190,7 +190,7 @@ func (s *storageImpl) insert(item Storable, prev *StoragePointer) (*StoragePoint
 	lastBlk := s.store[len(s.store)-1]
 	j := lastBlk.spaceUsed()
 	ptr := &StoragePointer{
-		BlockPtr:  uint64(len(s.store) - 1),
+		BlockPtr:  uint32(len(s.store) - 1),
 		RecordPtr: j,
 	}
 	// write back prev storage pointer location
@@ -245,12 +245,12 @@ func (s *storageImpl) read(ptr *StoragePointer) ([]byte, error) {
 	if ptr == nil {
 		return nil, nil
 	}
-	if ptr.BlockPtr >= uint64(len(s.store)) {
+	if ptr.BlockPtr >= uint32(len(s.store)) {
 		return nil, ErrBlockNotExist
 	}
 
 	size := uint64(record.RecordSize)
-	if s.store[ptr.BlockPtr][ptr.RecordPtr] == bptree.NodeIdentifier {
+	if s.store[ptr.BlockPtr][ptr.RecordPtr] == consts.NodeIdentifier {
 		bptr := ptr.BlockPtr
 		rptr := ptr.RecordPtr + 1
 		if rptr == uint8(s.blockSize) {
@@ -262,7 +262,7 @@ func (s *storageImpl) read(ptr *StoragePointer) ([]byte, error) {
 	}
 
 	buf := make([]byte, size)
-	var blockOffset uint64
+	var blockOffset uint32
 	var i int
 	recordStart := ptr.RecordPtr
 	for i < len(buf) {
@@ -365,7 +365,7 @@ func (s *storageImpl) DeleteRecord(ptr *StoragePointer) error {
 }
 
 func (s *storageImpl) copy(dst *StoragePointer, buf []byte, isDel bool) error {
-	var blockOffset uint64
+	var blockOffset uint32
 	writePtr := int(dst.RecordPtr)
 
 	var i int

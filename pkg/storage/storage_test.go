@@ -224,9 +224,9 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[]byte{24, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0},
 				},
-				spaceUsed:   28,
+				spaceUsed:   24,
 				maxCapacity: 30,
 				blockSize:   30,
 				lastRecordInsertedPtr: &StoragePointer{
@@ -252,14 +252,14 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{55, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 2, 1},
+					[]byte{47, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 2, 1},
 				},
-				spaceUsed:   55,
+				spaceUsed:   47,
 				maxCapacity: 500,
-				blockSize:   55,
+				blockSize:   47,
 				lastRecordInsertedPtr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 28,
+					RecordPtr: 24,
 				},
 			},
 			args: args{
@@ -272,8 +272,8 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 			wantStore: []block{
 				nil,
 				nil,
-				[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{24, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
 		},
 		{
@@ -282,15 +282,15 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{32, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 116, 116, 48},
-					[]byte{24, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 2, 1},
+					[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 116, 116, 48},
+					[]byte{20, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 2, 1},
 				},
-				spaceUsed:   56,
+				spaceUsed:   48,
 				maxCapacity: 100,
-				blockSize:   32,
+				blockSize:   28,
 				lastRecordInsertedPtr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 28,
+					RecordPtr: 24,
 				},
 			},
 			args: args{
@@ -303,7 +303,7 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 			wantStore: []block{
 				nil,
 				nil,
-				[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{24, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
 		},
 		{
@@ -312,28 +312,28 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{32, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 116, 116, 48},
-					[]byte{24, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 2, 1},
+					[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 116, 116, 48},
+					[]byte{20, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 2, 1},
 				},
-				spaceUsed:   56,
+				spaceUsed:   48,
 				maxCapacity: 100,
-				blockSize:   32,
+				blockSize:   28,
 				lastRecordInsertedPtr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 28,
+					RecordPtr: 24,
 				},
 			},
 			args: args{
 				ptr: &StoragePointer{
 					BlockPtr:  2,
-					RecordPtr: 28,
+					RecordPtr: 24,
 				},
 			},
 			wantErr: false,
 			wantStore: []block{
 				nil,
 				nil,
-				[]byte{28, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				[]byte{24, 0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
 		},
 	}
