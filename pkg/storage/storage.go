@@ -17,7 +17,7 @@ type Storage interface {
 	Read(ptr *storage_ptr.StoragePointer) ([]byte, error)
 	Delete(delPtr *storage_ptr.StoragePointer) error
 	copy(ptr *storage_ptr.StoragePointer, buf []byte, isDel bool) error
-	Update(ptr *storage_ptr.StoragePointer, updatedBuf []byte) error
+	Update(ptr *storage_ptr.StoragePointer, updatedItem Storable) error
 
 	//// InsertRecord stores a new record on "disk", returns the offset to read the data.
 	//InsertRecord(record record.Record) (*storage_ptr.StoragePointer, error)
@@ -233,7 +233,7 @@ func (s *storageImpl) Insert(item Storable) (*storage_ptr.StoragePointer, error)
 
 func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 	if ptr == nil {
-		return nil, nil
+		return nil, ErrReadNotExist
 	}
 	if ptr.BlockPtr >= uint32(len(s.store)) {
 		return nil, ErrBlockNotExist
@@ -306,8 +306,8 @@ func (s *storageImpl) Delete(delPtr *storage_ptr.StoragePointer) error {
 	return nil
 }
 
-func (s *storageImpl) Update(ptr *storage_ptr.StoragePointer, updatedBuf []byte) error {
-	return s.copy(ptr, updatedBuf, false)
+func (s *storageImpl) Update(ptr *storage_ptr.StoragePointer, updatedItem Storable) error {
+	return s.copy(ptr, updatedItem.Serialize(), false)
 }
 
 //func (s *storageImpl) DeleteRecord(delPtr *storage_ptr.StoragePointer) error {
@@ -396,17 +396,17 @@ func (s *storageImpl) copy(dst *storage_ptr.StoragePointer, buf []byte, isDel bo
 var _ Storable = (*BPTNode)(nil)
 
 type BPTNode struct {
-	M         uint8                         // number of child
-	Keys      []uint32                      // size M
-	ChildPtrs []*storage_ptr.StoragePointer // size M+1
-
+	NumKeys    uint8                         // number of keys contained
+	Keys       []uint32                      // size M
+	ChildPtrs  []*storage_ptr.StoragePointer // size M+1
+	Parent     *storage_ptr.StoragePointer
 	IsLeafNode bool
 }
 
 func (b *BPTNode) Serialize() []byte {
 	buf := make([]byte, 0)
 	buf = append(buf, consts.NodeIdentifier)
-	buf = append(buf, b.M)
+	buf = append(buf, b.NumKeys)
 	isLeafByte := uint8(0)
 	if b.IsLeafNode {
 		isLeafByte = 1
@@ -419,9 +419,7 @@ func (b *BPTNode) Serialize() []byte {
 		}
 		buf = append(buf, b.ChildPtrs[i+1].Serialize()...)
 	}
-	for i := 0; i < storage_ptr.StoragePtrSize; i++ {
-		buf = append(buf, 0)
-	}
+	buf = append(buf, b.Parent.Serialize()...)
 
 	return buf
 }
@@ -432,9 +430,10 @@ func NewBPTNode(m uint8, isLeaf bool) *BPTNode {
 	// if the node is a leaf node, the key's left ptr is non nil
 
 	return &BPTNode{
-		M:          m,
+		NumKeys:    0,
 		Keys:       make([]uint32, m),
 		ChildPtrs:  make([]*storage_ptr.StoragePointer, m+1),
+		Parent:     nil,
 		IsLeafNode: isLeaf,
 	}
 }
@@ -455,10 +454,11 @@ func NewBPTNodeFromBytes(buf []byte) *BPTNode {
 	children = append(children,
 		storage_ptr.NewStoragePointerFromBytes(buf[3+m*(storage_ptr.StoragePtrSize+4):3+(m+1)*(storage_ptr.StoragePtrSize+4)]))
 	return &BPTNode{
-		M:          m,
+		NumKeys:    buf[2],
 		Keys:       keys,
 		ChildPtrs:  children,
 		IsLeafNode: isLeaf,
+		Parent:     storage_ptr.NewStoragePointerFromBytes(buf[len(buf)-storage_ptr.StoragePtrSize:]),
 	}
 }
 
