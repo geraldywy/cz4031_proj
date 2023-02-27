@@ -2,6 +2,7 @@ package storage
 
 import (
 	"github.com/geraldywy/cz4031_proj1/pkg/record"
+	"github.com/geraldywy/cz4031_proj1/pkg/storage_ptr"
 	"reflect"
 	"testing"
 )
@@ -13,7 +14,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		ptr     *StoragePointer
+		ptr     *storage_ptr.StoragePointer
 		want    record.Record
 		wantErr bool
 	}{
@@ -29,7 +30,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 					nil,
 				},
 			},
-			ptr: &StoragePointer{
+			ptr: &storage_ptr.StoragePointer{
 				BlockPtr:  2,
 				RecordPtr: 1,
 			},
@@ -48,7 +49,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 					nil,
 				},
 			},
-			ptr: &StoragePointer{
+			ptr: &storage_ptr.StoragePointer{
 				BlockPtr:  2,
 				RecordPtr: 1,
 			},
@@ -87,7 +88,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    *StoragePointer
+		want    *storage_ptr.StoragePointer
 		wantErr bool
 	}{
 		{
@@ -106,7 +107,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 			args: args{
 				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
-			want: &StoragePointer{
+			want: &storage_ptr.StoragePointer{
 				BlockPtr:  2,
 				RecordPtr: 28,
 			},
@@ -128,7 +129,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 			args: args{
 				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
-			want: &StoragePointer{
+			want: &storage_ptr.StoragePointer{
 				BlockPtr:  2,
 				RecordPtr: 28,
 			},
@@ -149,7 +150,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 			args: args{
 				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
-			want: &StoragePointer{
+			want: &storage_ptr.StoragePointer{
 				BlockPtr:  3,
 				RecordPtr: 1,
 			},
@@ -166,7 +167,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 			args: args{
 				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
-			want: &StoragePointer{
+			want: &storage_ptr.StoragePointer{
 				BlockPtr:  0,
 				RecordPtr: 1,
 			},
@@ -206,10 +207,10 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 		spaceUsed             int
 		maxCapacity           int
 		blockSize             int
-		lastRecordInsertedPtr *StoragePointer
+		lastRecordInsertedPtr *storage_ptr.StoragePointer
 	}
 	type args struct {
-		ptr *StoragePointer
+		ptr *storage_ptr.StoragePointer
 	}
 	tests := []struct {
 		name      string
@@ -229,13 +230,13 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				spaceUsed:   24,
 				maxCapacity: 30,
 				blockSize:   30,
-				lastRecordInsertedPtr: &StoragePointer{
+				lastRecordInsertedPtr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 1,
 				},
 			},
 			args: args{
-				ptr: &StoragePointer{
+				ptr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 1,
 				},
@@ -257,13 +258,13 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				spaceUsed:   47,
 				maxCapacity: 500,
 				blockSize:   47,
-				lastRecordInsertedPtr: &StoragePointer{
+				lastRecordInsertedPtr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 24,
 				},
 			},
 			args: args{
-				ptr: &StoragePointer{
+				ptr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 1,
 				},
@@ -288,13 +289,13 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				spaceUsed:   48,
 				maxCapacity: 100,
 				blockSize:   28,
-				lastRecordInsertedPtr: &StoragePointer{
+				lastRecordInsertedPtr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 24,
 				},
 			},
 			args: args{
-				ptr: &StoragePointer{
+				ptr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 1,
 				},
@@ -318,13 +319,13 @@ func Test_storageImpl_DeleteRecord(t *testing.T) {
 				spaceUsed:   48,
 				maxCapacity: 100,
 				blockSize:   28,
-				lastRecordInsertedPtr: &StoragePointer{
+				lastRecordInsertedPtr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 24,
 				},
 			},
 			args: args{
-				ptr: &StoragePointer{
+				ptr: &storage_ptr.StoragePointer{
 					BlockPtr:  2,
 					RecordPtr: 24,
 				},
