@@ -16,12 +16,15 @@ const StoragePtrSize = 5
 
 func (s *StoragePointer) Serialize() []byte {
 	buf := make([]byte, StoragePtrSize)
+	if s == nil {
+		return buf
+	}
 	j := 0
 	for _, b := range utils.UInt32ToBytes(s.BlockPtr) {
 		buf[j] = b
 		j += 1
 	}
-	buf[j] = utils.UInt32ToBytes(uint32(s.RecordPtr))[0]
+	buf[j] = utils.UInt32ToBytes(uint32(s.RecordPtr))[3]
 
 	return buf
 }
@@ -35,6 +38,9 @@ func (s *StoragePointer) DeepEqual(other *StoragePointer) bool {
 }
 
 func NewStoragePointerFromBytes(buf []byte) *StoragePointer {
+	if buf == nil {
+		return nil
+	}
 	ptr := &StoragePointer{
 		BlockPtr:  utils.UInt32FromBytes(utils.SliceTo4ByteArray(buf[:4])),
 		RecordPtr: buf[4],

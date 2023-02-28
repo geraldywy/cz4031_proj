@@ -42,7 +42,7 @@ type recordImpl struct {
 
 func (r *recordImpl) Serialize() []byte {
 	buf := make([]byte, consts.RecordSize)
-	buf[0] = consts.RecordIdentifier
+	buf[0] = consts.RecordSize
 	j := 1
 	for i := range r.tconst {
 		buf[j] = r.tconst[i]

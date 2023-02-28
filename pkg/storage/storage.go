@@ -11,6 +11,8 @@ type Storable interface {
 	Serialize() []byte
 }
 
+var M uint8 = 3
+
 type Storage interface {
 	//// internal methods
 	Insert(item Storable) (*storage_ptr.StoragePointer, error)
@@ -239,24 +241,25 @@ func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 		return nil, ErrBlockNotExist
 	}
 
-	var size int
-	switch s.store[ptr.BlockPtr][ptr.RecordPtr] {
-	case consts.RecordIdentifier:
-		size = consts.RecordSize
-	case consts.NodeIdentifier:
-		bptr := ptr.BlockPtr
-		rptr := ptr.RecordPtr + 1
-		if rptr == uint8(s.blockSize) {
-			bptr++
-			rptr = blockHeaderSize
-		}
-		m := int(s.store[bptr][rptr])                                                      // number of Keys in a node
-		size = 1 + 1 + 1 + m*(storage_ptr.StoragePtrSize+4) + storage_ptr.StoragePtrSize*2 // ident, m_val, is_leaf, M*(storage_ptr + val) + storage_ptr + storage_ptr for parent node
-	case consts.IndexedRecordIdentifier:
-		size = consts.IndexedRecordSize
-	default:
-		return nil, ErrUnrecognisedDiskData
-	}
+	size := int(s.store[ptr.BlockPtr][ptr.RecordPtr])
+	//var size int
+	//switch s.store[ptr.BlockPtr][ptr.RecordPtr] {
+	//case consts.RecordIdentifier:
+	//	size = consts.RecordSize
+	//case consts.NodeIdentifier:
+	//	bptr := ptr.BlockPtr
+	//	rptr := ptr.RecordPtr + 1
+	//	if rptr == uint8(s.blockSize) {
+	//		bptr++
+	//		rptr = blockHeaderSize
+	//	}
+	//	m := int(s.store[bptr][rptr]) // number of Keys in a node
+	//	size = 1 + 1 + 1 + m*(storage_ptr.StoragePtrSize+4) + storage_ptr.StoragePtrSize*2 // ident, m_val, is_leaf, M*(storage_ptr + val) + storage_ptr + storage_ptr for parent node
+	//case consts.IndexedRecordIdentifier:
+	//	size = consts.IndexedRecordSize
+	//default:
+	//	return nil, ErrUnrecognisedDiskData
+	//}
 
 	buf := make([]byte, size)
 	var blockOffset uint32
@@ -287,12 +290,7 @@ func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 //}
 
 func (s *storageImpl) Delete(delPtr *storage_ptr.StoragePointer) error {
-	buf, err := s.Read(delPtr)
-	if err != nil {
-		return err
-	}
-
-	tmp := make([]byte, len(buf))
+	tmp := make([]byte, s.store[delPtr.BlockPtr][delPtr.RecordPtr])
 	if err := s.copy(delPtr, tmp, true); err != nil {
 		return err
 	}
@@ -405,7 +403,8 @@ type BPTNode struct {
 
 func (b *BPTNode) Serialize() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, consts.NodeIdentifier)
+	size := 1 + 1 + 1 + M*(storage_ptr.StoragePtrSize+4) + storage_ptr.StoragePtrSize*2 // ident, m_val, is_leaf, M*(storage_ptr + val) + storage_ptr + storage_ptr for parent node
+	buf = append(buf, size)
 	buf = append(buf, b.NumKeys)
 	isLeafByte := uint8(0)
 	if b.IsLeafNode {
@@ -447,18 +446,17 @@ func NewBPTNodeFromBytes(buf []byte) *BPTNode {
 	if buf[2] == 1 {
 		isLeaf = true
 	}
-	m := buf[1]
 	children := make([]*storage_ptr.StoragePointer, 0)
 	keys := make([]uint32, 0)
-	for i := 0; i < int(m); i++ {
+	for i := 0; i < int(M); i++ {
 		pkt := buf[3+i*(storage_ptr.StoragePtrSize+4) : 3+(i+1)*(storage_ptr.StoragePtrSize+4)]
 		children = append(children, storage_ptr.NewStoragePointerFromBytes(pkt[:storage_ptr.StoragePtrSize]))
 		keys = append(keys, utils.UInt32FromBytes(utils.SliceTo4ByteArray(pkt[storage_ptr.StoragePtrSize:])))
 	}
 	children = append(children,
-		storage_ptr.NewStoragePointerFromBytes(buf[3+m*(storage_ptr.StoragePtrSize+4):3+(m+1)*(storage_ptr.StoragePtrSize+4)]))
+		storage_ptr.NewStoragePointerFromBytes(buf[3+M*(storage_ptr.StoragePtrSize+4):3+(M+1)*(storage_ptr.StoragePtrSize+4)]))
 	return &BPTNode{
-		NumKeys:    buf[2],
+		NumKeys:    buf[1],
 		Keys:       keys,
 		ChildPtrs:  children,
 		IsLeafNode: isLeaf,
@@ -473,9 +471,15 @@ type IndexedRecord struct {
 
 func (ir *IndexedRecord) Serialize() []byte {
 	buf := make([]byte, 0)
-	buf = append(buf, consts.IndexedRecordIdentifier)
+	buf = append(buf, consts.IndexedRecordSize)
 	buf = append(buf, ir.RecordPtr.Serialize()...)
-	buf = append(buf, ir.NxtPtr.Serialize()...)
+	if ir.NxtPtr == nil {
+		for i := 0; i < storage_ptr.StoragePtrSize; i++ {
+			buf = append(buf, 0)
+		}
+	} else {
+		buf = append(buf, ir.NxtPtr.Serialize()...)
+	}
 	for i := 0; i < storage_ptr.StoragePtrSize; i++ {
 		buf = append(buf, 0)
 	}
