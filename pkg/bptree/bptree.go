@@ -62,7 +62,7 @@ func (b *bptree) deleteEntry(node *storage.BPTNode, nodePtr *storage_ptr.Storage
 		return err
 	}
 
-	if nodePtr == b.rootNodePtr {
+	if nodePtr.DeepEqual(b.rootNodePtr) {
 		if err := b.store.Update(nodePtr, node); err != nil {
 			return err
 		}
@@ -90,7 +90,10 @@ func (b *bptree) deleteEntry(node *storage.BPTNode, nodePtr *storage_ptr.Storage
 	kPrimeIdx := utils.Max(0, neighIdx)
 	kPrime := parentNode.Keys[kPrimeIdx]
 
-	x := utils.Max(1, neighIdx)
+	x := neighIdx
+	if neighIdx == -1 {
+		x = 1
+	}
 	neighPtr := parentNode.ChildPtrs[x]
 	neighBuf, err := b.store.Read(neighPtr)
 	if err != nil {
@@ -201,7 +204,7 @@ func (b *bptree) coalesceNodes(node *storage.BPTNode, nodePtr *storage_ptr.Stora
 	neighInsertionIdx := neighNode.NumKeys
 	if node.IsLeafNode {
 		i := neighInsertionIdx
-		for j := 0; j < int(neighNode.NumKeys); j++ {
+		for j := 0; j < int(node.NumKeys); j++ {
 			neighNode.Keys[i] = node.Keys[j]
 			neighNode.ChildPtrs[i] = node.ChildPtrs[j]
 			neighNode.NumKeys++
@@ -213,7 +216,8 @@ func (b *bptree) coalesceNodes(node *storage.BPTNode, nodePtr *storage_ptr.Stora
 		neighNode.NumKeys++
 		j := 0
 		i := neighInsertionIdx + 1
-		for j < int(node.NumKeys) {
+		size := int(node.NumKeys)
+		for j < size {
 			neighNode.Keys[i] = node.Keys[j]
 			neighNode.ChildPtrs[i] = node.ChildPtrs[j]
 			neighNode.NumKeys++
@@ -268,10 +272,6 @@ func (b *bptree) adjustRoot(rootNode *storage.BPTNode) error {
 	if rootNode.NumKeys > 0 {
 		return nil
 	}
-	if err := b.store.Delete(b.rootNodePtr); err != nil {
-		return err
-	}
-
 	var newRootPtr *storage_ptr.StoragePointer
 	if !rootNode.IsLeafNode {
 		newRootPtr = rootNode.ChildPtrs[0]
@@ -281,9 +281,14 @@ func (b *bptree) adjustRoot(rootNode *storage.BPTNode) error {
 		}
 		newRoot := storage.NewBPTNodeFromBytes(newRootBuf)
 		newRoot.Parent = nil
-		b.store.Update(newRootPtr, newRoot)
+		if err := b.store.Update(newRootPtr, newRoot); err != nil {
+			return err
+		}
 	} else {
 		newRootPtr = nil
+	}
+	if err := b.store.Delete(b.rootNodePtr); err != nil {
+		return err
 	}
 	b.rootNodePtr = newRootPtr
 
@@ -361,7 +366,7 @@ func (b *bptree) SearchRange(from uint32, to uint32) ([]record.Record, error) {
 		}
 		idx++
 		if idx == int(leafNode.NumKeys) {
-			buf, err := b.store.Read(leafNode.ChildPtrs[idx])
+			buf, err := b.store.Read(leafNode.ChildPtrs[len(leafNode.ChildPtrs)-1])
 			if err != nil {
 				return nil, err
 			}
@@ -478,6 +483,7 @@ func (b *bptree) searchLeaf(key uint32) (*storage.BPTNode, *storage_ptr.StorageP
 	}
 	tmp := rootNode
 	tmpPtr := b.rootNodePtr
+
 	for !tmp.IsLeafNode {
 		// TODO: maybe change linear to binary search
 		idx := 0
