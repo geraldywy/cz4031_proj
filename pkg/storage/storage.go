@@ -20,7 +20,7 @@ type Storage interface {
 	AvgRecordPerBlock() float64
 
 	Insert(item Storable) (*storage_ptr.StoragePointer, error)
-	Read(ptr *storage_ptr.StoragePointer) ([]byte, error)
+	Read(ptr *storage_ptr.StoragePointer) ([]byte, int, error)
 	Delete(delPtr *storage_ptr.StoragePointer) error
 	copy(ptr *storage_ptr.StoragePointer, buf []byte, isDel bool) error
 	Update(ptr *storage_ptr.StoragePointer, updatedItem Storable) error
@@ -254,34 +254,15 @@ func (s *storageImpl) Insert(item Storable) (*storage_ptr.StoragePointer, error)
 //	return ptr, nil
 //}
 
-func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
+func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, int, error) {
 	if ptr == nil {
-		return nil, nil
+		return nil, 0, nil
 	}
 	if ptr.BlockPtr >= uint32(len(s.store)) {
-		return nil, ErrBlockNotExist
+		return nil, 0, ErrBlockNotExist
 	}
 
 	size := int(s.store[ptr.BlockPtr][ptr.RecordPtr])
-	//var size int
-	//switch s.store[ptr.BlockPtr][ptr.RecordPtr] {
-	//case consts.RecordIdentifier:
-	//	size = consts.RecordSize
-	//case consts.NodeIdentifier:
-	//	bptr := ptr.BlockPtr
-	//	rptr := ptr.RecordPtr + 1
-	//	if rptr == uint8(s.blockSize) {
-	//		bptr++
-	//		rptr = blockHeaderSize
-	//	}
-	//	m := int(s.store[bptr][rptr]) // number of Keys in a node
-	//	size = 1 + 1 + 1 + m*(storage_ptr.StoragePtrSize+4) + storage_ptr.StoragePtrSize*2 // ident, m_val, is_leaf, M*(storage_ptr + val) + storage_ptr + storage_ptr for parent node
-	//case consts.IndexedRecordIdentifier:
-	//	size = consts.IndexedRecordSize
-	//default:
-	//	return nil, ErrUnrecognisedDiskData
-	//}
-
 	buf := make([]byte, size)
 	var blockOffset uint32
 	var i int
@@ -291,14 +272,14 @@ func (s *storageImpl) Read(ptr *storage_ptr.StoragePointer) ([]byte, error) {
 		t := buf[i:]
 		cnt := blk.read(int(recordStart), int(recordStart)+len(buf)-i, &t)
 		if cnt == 0 {
-			return nil, ErrReadNotExist
+			return nil, 0, ErrReadNotExist
 		}
 		i += cnt
 		blockOffset++
 		recordStart = blockHeaderSize
 	}
 
-	return buf, nil
+	return buf, int(blockOffset), nil
 }
 
 //func (s *storageImpl) ReadRecord(ptr *storage_ptr.StoragePointer) (record.Record, error) {

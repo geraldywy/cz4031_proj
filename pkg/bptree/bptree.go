@@ -16,10 +16,17 @@ var (
 
 type BPTree interface {
 	Insert(key uint32, ptr *storage_ptr.StoragePointer) error
-	Search(key uint32) ([]record.Record, []*storage_ptr.StoragePointer, error)
-	SearchRange(from uint32, to uint32) ([]record.Record, error)
-	// DeleteAll deletes all indexes with this key
-	DeleteAll(key uint32) error
+	Search(key uint32) ([]record.Record, []*storage_ptr.StoragePointer, int, int, error)
+	SearchRange(from uint32, to uint32) ([]record.Record, int, int, error)
+	// DeleteAll deletes all indexes with this key, returns the number of records deleted
+	DeleteAll(key uint32) (int, error)
+
+
+	// for reporting purposes
+	M() int
+	NodeCnt() int
+	Height() int
+	RootNodeContent() []uint32
 }
 
 var _ BPTree = (*bptree)(nil)
@@ -28,31 +35,72 @@ type bptree struct {
 	m           uint8
 	store       storage.Storage
 	rootNodePtr *storage_ptr.StoragePointer
+
+	nodeCnt int
+}
+
+func (b *bptree) M() int {
+	return int(b.m)
+}
+
+func (b *bptree) NodeCnt() int {
+	return b.nodeCnt
+}
+
+func (b *bptree) Height() int {
+	if b.rootNodePtr == nil {
+		return 0
+	}
+	cnt := 1
+	tmpBuf, _, err := b.store.Read(b.rootNodePtr)
+	if err != nil {
+		panic(err)
+	}
+	tmp := storage.NewBPTNodeFromBytes(tmpBuf)
+	for !tmp.IsLeafNode {
+		nxtBuf, _, err := b.store.Read(tmp.ChildPtrs[0])
+		if err != nil {
+			panic(err)
+		}
+		tmp = storage.NewBPTNodeFromBytes(nxtBuf)
+		cnt++
+	}
+
+	return cnt
+}
+
+func (b *bptree) RootNodeContent() []uint32 {
+	tmpBuf, _, err := b.store.Read(b.rootNodePtr)
+	if err != nil {
+		panic(err)
+	}
+	tmp := storage.NewBPTNodeFromBytes(tmpBuf)
+	return tmp.Keys
 }
 
 func NewBPTree(m uint8, store storage.Storage) BPTree {
 	storage.M = m
-	return &bptree{m: m, store: store, rootNodePtr: nil}
+	return &bptree{m: m, store: store, rootNodePtr: nil, nodeCnt: 0}
 }
 
-func (b *bptree) DeleteAll(key uint32) error {
-	_, recordPtrs, err := b.Search(key)
+func (b *bptree) DeleteAll(key uint32) (int, error) {
+	_, recordPtrs, _, _, err := b.Search(key)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// remove in storage all indexed records under this key
 	for _, ptr := range recordPtrs {
 		if err := b.store.Delete(ptr); err != nil {
-			return err
+			return 0, err
 		}
 	}
 
-	leafNode, leafNodePtr, err := b.searchLeaf(key)
+	leafNode, leafNodePtr, _, _, err := b.searchLeaf(key)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return b.deleteEntry(leafNode, leafNodePtr, key, recordPtrs[0])
+	return len(recordPtrs), b.deleteEntry(leafNode, leafNodePtr, key, recordPtrs[0])
 }
 
 func (b *bptree) deleteEntry(node *storage.BPTNode, nodePtr *storage_ptr.StoragePointer, key uint32, indexedRecPtr *storage_ptr.StoragePointer) error {
@@ -78,7 +126,7 @@ func (b *bptree) deleteEntry(node *storage.BPTNode, nodePtr *storage_ptr.Storage
 		return b.store.Update(nodePtr, node)
 	}
 
-	parentBuf, err := b.store.Read(node.Parent)
+	parentBuf, _, err := b.store.Read(node.Parent)
 	if err != nil {
 		return err
 	}
@@ -95,7 +143,7 @@ func (b *bptree) deleteEntry(node *storage.BPTNode, nodePtr *storage_ptr.Storage
 		x = 1
 	}
 	neighPtr := parentNode.ChildPtrs[x]
-	neighBuf, err := b.store.Read(neighPtr)
+	neighBuf, _, err := b.store.Read(neighPtr)
 	if err != nil {
 		return err
 	}
@@ -115,7 +163,7 @@ func (b *bptree) deleteEntry(node *storage.BPTNode, nodePtr *storage_ptr.Storage
 func (b *bptree) redistributeNodes(node *storage.BPTNode, nodePtr *storage_ptr.StoragePointer, neighNode *storage.BPTNode,
 	neighPtr *storage_ptr.StoragePointer, neighIdx int, kPrimeIdx int, kPrime uint32) error {
 	parentNodePtr := node.Parent
-	parentBuf, err := b.store.Read(parentNodePtr)
+	parentBuf, _, err := b.store.Read(parentNodePtr)
 	if err != nil {
 		return err
 	}
@@ -132,7 +180,7 @@ func (b *bptree) redistributeNodes(node *storage.BPTNode, nodePtr *storage_ptr.S
 		if !node.IsLeafNode {
 			node.ChildPtrs[0] = neighNode.ChildPtrs[neighNode.NumKeys]
 			tmpPtr := node.ChildPtrs[0]
-			tmpBuf, err := b.store.Read(tmpPtr)
+			tmpBuf, _, err := b.store.Read(tmpPtr)
 			if err != nil {
 				return err
 			}
@@ -159,7 +207,7 @@ func (b *bptree) redistributeNodes(node *storage.BPTNode, nodePtr *storage_ptr.S
 			node.Keys[node.NumKeys] = kPrime
 			node.ChildPtrs[int(node.NumKeys)+1] = neighNode.ChildPtrs[0]
 			tmpPtr := node.ChildPtrs[int(node.NumKeys)+1]
-			tmpBuf, err := b.store.Read(tmpPtr)
+			tmpBuf, _, err := b.store.Read(tmpPtr)
 			if err != nil {
 				return err
 			}
@@ -227,7 +275,7 @@ func (b *bptree) coalesceNodes(node *storage.BPTNode, nodePtr *storage_ptr.Stora
 		neighNode.ChildPtrs[i] = node.ChildPtrs[j]
 		for i := 0; i <= int(neighNode.NumKeys); i++ {
 			childPtr := neighNode.ChildPtrs[i]
-			buf, err := b.store.Read(childPtr)
+			buf, _, err := b.store.Read(childPtr)
 			if err != nil {
 				return err
 			}
@@ -246,9 +294,10 @@ func (b *bptree) coalesceNodes(node *storage.BPTNode, nodePtr *storage_ptr.Stora
 	if err := b.store.Delete(nodePtr); err != nil {
 		return err
 	}
+	b.nodeCnt--
 
 	parentNodePtr := node.Parent
-	parentBuf, err := b.store.Read(parentNodePtr)
+	parentBuf, _, err := b.store.Read(parentNodePtr)
 	if err != nil {
 		return err
 	}
@@ -275,7 +324,7 @@ func (b *bptree) adjustRoot(rootNode *storage.BPTNode) error {
 	var newRootPtr *storage_ptr.StoragePointer
 	if !rootNode.IsLeafNode {
 		newRootPtr = rootNode.ChildPtrs[0]
-		newRootBuf, err := b.store.Read(newRootPtr)
+		newRootBuf, _, err := b.store.Read(newRootPtr)
 		if err != nil {
 			return err
 		}
@@ -287,6 +336,7 @@ func (b *bptree) adjustRoot(rootNode *storage.BPTNode) error {
 	} else {
 		newRootPtr = nil
 	}
+	b.nodeCnt--
 	if err := b.store.Delete(b.rootNodePtr); err != nil {
 		return err
 	}
@@ -333,10 +383,10 @@ func (b *bptree) removeEntryFromNode(node *storage.BPTNode, key uint32, ptr *sto
 	return node, nil
 }
 
-func (b *bptree) SearchRange(from uint32, to uint32) ([]record.Record, error) {
-	leafNode, _, err := b.searchLeaf(from)
+func (b *bptree) SearchRange(from uint32, to uint32) ([]record.Record, int, int, error) {
+	leafNode, _, nodeAccCnt, bCnt, err := b.searchLeaf(from)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 
 	res := make([]record.Record, 0)
@@ -346,36 +396,41 @@ func (b *bptree) SearchRange(from uint32, to uint32) ([]record.Record, error) {
 		if v > to {
 			break
 		} else if v >= from {
-			buf, err := b.store.Read(leafNode.ChildPtrs[idx])
+			buf, cnt, err := b.store.Read(leafNode.ChildPtrs[idx])
 			if err != nil {
-				return nil, err
+				return nil, 0, 0, err
 			}
+			bCnt += cnt
 			idxedRec := storage.IndexedRecordFromBytes(buf)
 			for idxedRec != nil {
-				buf, err := b.store.Read(idxedRec.RecordPtr)
+				buf, cnt, err := b.store.Read(idxedRec.RecordPtr)
 				if err != nil {
-					return nil, err
+					return nil, 0, 0, err
 				}
+				bCnt += cnt
 				res = append(res, record.NewRecordFromBytes(buf))
-				buf, err = b.store.Read(idxedRec.NxtPtr)
+				buf, cnt, err = b.store.Read(idxedRec.NxtPtr)
 				if err != nil {
-					return nil, err
+					return nil, 0, 0, err
 				}
+				bCnt += cnt
 				idxedRec = storage.IndexedRecordFromBytes(buf)
 			}
 		}
 		idx++
 		if idx == int(leafNode.NumKeys) {
-			buf, err := b.store.Read(leafNode.ChildPtrs[len(leafNode.ChildPtrs)-1])
+			buf, cnt, err := b.store.Read(leafNode.ChildPtrs[len(leafNode.ChildPtrs)-1])
 			if err != nil {
-				return nil, err
+				return nil, 0, 0, err
 			}
+			bCnt += cnt
+			nodeAccCnt++
 			leafNode = storage.NewBPTNodeFromBytes(buf)
 			idx = 0
 		}
 	}
 
-	return res, nil
+	return res, nodeAccCnt, bCnt, nil
 }
 
 // ptr here refers to the record pointer, not the indexedRecord ptr
@@ -384,7 +439,7 @@ func (b *bptree) Insert(key uint32, ptr *storage_ptr.StoragePointer) error {
 		return b.startNewTree(key, ptr)
 	}
 
-	leaf, leafPtr, err := b.searchLeaf(key)
+	leaf, leafPtr, _, _, err := b.searchLeaf(key)
 
 	if err != nil {
 		return err
@@ -400,29 +455,28 @@ func (b *bptree) Insert(key uint32, ptr *storage_ptr.StoragePointer) error {
 
 	// support duplicate keys
 	if idx != -1 {
-		lastPtr := leaf.ChildPtrs[idx]
-		buf, err := b.store.Read(lastPtr)
-		if err != nil {
-			return err
-		}
-		idxedRec := storage.IndexedRecordFromBytes(buf)
-		for idxedRec.NxtPtr != nil {
-			lastPtr = idxedRec.NxtPtr
-			buf, err := b.store.Read(lastPtr)
-			if err != nil {
-				return err
-			}
-			idxedRec = storage.IndexedRecordFromBytes(buf)
-		}
+		//buf, err := b.store.Read(lastPtr)
+		//if err != nil {
+		//	return err
+		//}
+		//idxedRec := storage.IndexedRecordFromBytes(buf)
+		//for idxedRec.NxtPtr != nil {
+		//	lastPtr = idxedRec.NxtPtr
+		//	buf, err := b.store.Read(lastPtr)
+		//	if err != nil {
+		//		return err
+		//	}
+		//	idxedRec = storage.IndexedRecordFromBytes(buf)
+		//}
 		newPtr, err := b.store.Insert(&storage.IndexedRecord{
 			RecordPtr: ptr,
-			NxtPtr:    nil,
+			NxtPtr:    leaf.ChildPtrs[idx],
 		})
 		if err != nil {
 			return err
 		}
-		idxedRec.NxtPtr = newPtr
-		return b.store.Update(lastPtr, idxedRec)
+		leaf.ChildPtrs[idx] = newPtr
+		return b.store.Update(leafPtr, leaf)
 	}
 
 	if leaf.NumKeys < b.m {
@@ -432,10 +486,11 @@ func (b *bptree) Insert(key uint32, ptr *storage_ptr.StoragePointer) error {
 	return b.insertIntoLeafAfterSplitting(leaf, leafPtr, key, ptr)
 }
 
-func (b *bptree) Search(key uint32) ([]record.Record, []*storage_ptr.StoragePointer, error) {
-	leafNode, _, err := b.searchLeaf(key)
+// records, ptrs, nodeAccessedCnt, dataBlockCnt
+func (b *bptree) Search(key uint32) ([]record.Record, []*storage_ptr.StoragePointer, int, int, error) {
+	leafNode, _, nodeAccCnt, bCnt, err := b.searchLeaf(key)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, 0, err
 	}
 	var idx int
 	for idx < int(leafNode.NumKeys) {
@@ -445,42 +500,46 @@ func (b *bptree) Search(key uint32) ([]record.Record, []*storage_ptr.StoragePoin
 		idx++
 	}
 	if idx == int(leafNode.NumKeys) {
-		return nil, nil, ErrKeyNotFound
+		return nil, nil, 0, 0, ErrKeyNotFound
 	}
 	res := make([]record.Record, 0)
 	resPtrs := make([]*storage_ptr.StoragePointer, 0)
 	resPtrs = append(resPtrs, leafNode.ChildPtrs[idx])
-	buf, err := b.store.Read(leafNode.ChildPtrs[idx])
+	buf, cnt, err := b.store.Read(leafNode.ChildPtrs[idx])
+	bCnt += cnt
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, 0, err
 	}
 	idxedRec := storage.IndexedRecordFromBytes(buf)
 	for idxedRec != nil {
-		buf, err := b.store.Read(idxedRec.RecordPtr)
+		buf, cnt, err := b.store.Read(idxedRec.RecordPtr)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, 0, 0, err
 		}
+		bCnt += cnt
 		res = append(res, record.NewRecordFromBytes(buf))
 		resPtrs = append(resPtrs, idxedRec.NxtPtr)
-		buf, err = b.store.Read(idxedRec.NxtPtr)
+		buf, cnt, err = b.store.Read(idxedRec.NxtPtr)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, 0, 0, err
 		}
+		bCnt += cnt
 		idxedRec = storage.IndexedRecordFromBytes(buf)
 	}
 	resPtrs = resPtrs[:len(resPtrs)-1] // last ptr is nil
-	return res, resPtrs, nil
+	return res, resPtrs, nodeAccCnt, bCnt, nil
 }
 
-func (b *bptree) searchLeaf(key uint32) (*storage.BPTNode, *storage_ptr.StoragePointer, error) {
-	rootNodeBuf, err := b.store.Read(b.rootNodePtr)
+func (b *bptree) searchLeaf(key uint32) (*storage.BPTNode, *storage_ptr.StoragePointer, int, int, error) {
+	rootNodeBuf, bCnt, err := b.store.Read(b.rootNodePtr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, 0, 0, err
 	}
 	rootNode := storage.NewBPTNodeFromBytes(rootNodeBuf)
 	if rootNode == nil {
-		return nil, nil, ErrKeyNotFound
+		return nil, nil, 0, 0, ErrKeyNotFound
 	}
+	nodeAccessedCnt := 1
 	tmp := rootNode
 	tmpPtr := b.rootNodePtr
 
@@ -495,14 +554,16 @@ func (b *bptree) searchLeaf(key uint32) (*storage.BPTNode, *storage_ptr.StorageP
 			}
 		}
 		tmpPtr = tmp.ChildPtrs[idx]
-		buf, err := b.store.Read(tmpPtr)
+		buf, cnt, err := b.store.Read(tmpPtr)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, 0, 0, err
 		}
+		bCnt += cnt
+		nodeAccessedCnt++
 		tmp = storage.NewBPTNodeFromBytes(buf)
 	}
 
-	return tmp, tmpPtr, nil
+	return tmp, tmpPtr, nodeAccessedCnt, bCnt, nil
 }
 
 func (b *bptree) startNewTree(key uint32, ptr *storage_ptr.StoragePointer) error {
@@ -606,6 +667,7 @@ func (b *bptree) insertIntoLeafAfterSplitting(leaf *storage.BPTNode, leafPtr *st
 	newLeaf.ChildPtrs[n-1] = leaf.ChildPtrs[n-1]
 	newLeaf.Parent = leaf.Parent
 	newLeafPtr, err := b.store.Insert(newLeaf)
+	b.nodeCnt++
 	if err != nil {
 		return err
 	}
@@ -623,7 +685,7 @@ func (b *bptree) insertIntoParent(left *storage.BPTNode, leftPtr *storage_ptr.St
 		return b.insertIntoNewRoot(left, leftPtr, key, right, rightPtr)
 	}
 
-	buf, err := b.store.Read(parentPtr)
+	buf, _, err := b.store.Read(parentPtr)
 	if err != nil {
 		return err
 	}
@@ -721,11 +783,12 @@ func (b *bptree) insertIntoNodeAfterSplitting(oldNode *storage.BPTNode, oldNodeP
 	newNode.ChildPtrs[newNode.NumKeys] = tmpPtrs[n]
 	newNode.Parent = oldNode.Parent
 	newNodePtr, err := b.store.Insert(newNode)
+	b.nodeCnt++
 	if err != nil {
 		return err
 	}
 	for i := 0; i <= int(newNode.NumKeys); i++ {
-		buf, err := b.store.Read(newNode.ChildPtrs[i])
+		buf, _, err := b.store.Read(newNode.ChildPtrs[i])
 		if err != nil {
 			return err
 		}

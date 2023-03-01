@@ -62,7 +62,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 			s := &storageImpl{
 				store: tt.fields.store,
 			}
-			buf, err := s.Read(tt.ptr)
+			buf, _, err := s.Read(tt.ptr)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReadRecord() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -191,7 +191,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 			if (got == nil && tt.want != nil) || !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("InsertRecord() got = %v, want %v", got, tt.want)
 			}
-			buf, err := s.Read(got)
+			buf, _, err := s.Read(got)
 			if err != nil {
 				t.Errorf("Failed to read back record inserted, got err %v", err)
 			}

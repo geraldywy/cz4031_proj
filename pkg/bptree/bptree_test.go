@@ -169,7 +169,7 @@ func Test_bptree_InsertAndSearch(t *testing.T) {
 			// read back
 			for _, recs := range tt.records {
 				k := uint32(recs[0].NumVotes())
-				records, _, err := b.Search(k)
+				records, _, _, _, err := b.Search(k)
 				if err != nil {
 					t.Fatalf("readback err = %v, key: %d", err, k)
 				}
@@ -508,7 +508,7 @@ func Test_bptree_InsertAndSearchRange(t *testing.T) {
 			}
 
 			// read range
-			records, err := b.SearchRange(tt.from, tt.to)
+			records, _, _, err := b.SearchRange(tt.from, tt.to)
 			if err != nil {
 				t.Fatalf("read range err: %v", err)
 			}
@@ -736,12 +736,12 @@ func Test_bptree_DeleteAll(t *testing.T) {
 						expectedResult = append(expectedResult, recs...)
 					}
 				}
-				if err := b.DeleteAll(delKey); err != nil {
+				if _, err := b.DeleteAll(delKey); err != nil {
 					t.Fatalf("delete all, key: %d err: %v", delKey, err)
 				}
 
 				// read back all keys
-				records, err := b.SearchRange(0, 100000)
+				records, _, _, err := b.SearchRange(0, 100000)
 				if err != nil {
 					t.Fatalf("read all err: %v", err)
 				}
