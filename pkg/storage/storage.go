@@ -14,7 +14,11 @@ type Storable interface {
 var M uint8 = 3
 
 type Storage interface {
-	//// internal methods
+	// for reporting
+	RecordCnt() int
+	BlockCnt() int
+	AvgRecordPerBlock() float64
+
 	Insert(item Storable) (*storage_ptr.StoragePointer, error)
 	Read(ptr *storage_ptr.StoragePointer) ([]byte, error)
 	Delete(delPtr *storage_ptr.StoragePointer) error
@@ -86,6 +90,9 @@ var _ Storable = (*storage_ptr.StoragePointer)(nil)
 var _ Storage = (*storageImpl)(nil)
 
 type storageImpl struct {
+	// for reporting
+	recordCnt int
+
 	// We simulate the disk storage as a contiguous one, using a slice of bytes.
 	store []block
 
@@ -100,6 +107,10 @@ type storageImpl struct {
 	//lastIndexedRecordInserted *storage_ptr.StoragePointer
 }
 
+func (s *storageImpl) AvgRecordPerBlock() float64 {
+	return float64(s.RecordCnt()) / float64(s.BlockCnt())
+}
+
 func NewStorage(maxCapacity int, blockSize int) Storage {
 	return &storageImpl{
 		store:       make([]block, 0),
@@ -110,6 +121,15 @@ func NewStorage(maxCapacity int, blockSize int) Storage {
 		//lastBPTNodeInserted:   nil,
 	}
 }
+
+func (s *storageImpl) RecordCnt() int {
+	return s.recordCnt
+}
+
+func (s *storageImpl) BlockCnt() int {
+	return len(s.store)
+}
+
 
 // A block is nothing more than a series of bytes.
 type block []byte
@@ -219,6 +239,7 @@ func (s *storageImpl) Insert(item Storable) (*storage_ptr.StoragePointer, error)
 	}
 
 	lastBlk.updateSize(j)
+	s.recordCnt++
 
 	return ptr, nil
 }
@@ -403,7 +424,7 @@ type BPTNode struct {
 
 func (b *BPTNode) Serialize() []byte {
 	buf := make([]byte, 0)
-	size := 1 + 1 + 1 + M*(storage_ptr.StoragePtrSize+4) + storage_ptr.StoragePtrSize*2 // ident, m_val, is_leaf, M*(storage_ptr + val) + storage_ptr + storage_ptr for parent node
+	size := 1 + 1 + 1 + M*(consts.StoragePtrSize+4) + consts.StoragePtrSize*2 // ident, m_val, is_leaf, M*(storage_ptr + val) + storage_ptr + storage_ptr for parent node
 	buf = append(buf, size)
 	buf = append(buf, b.NumKeys)
 	isLeafByte := uint8(0)
@@ -449,18 +470,18 @@ func NewBPTNodeFromBytes(buf []byte) *BPTNode {
 	children := make([]*storage_ptr.StoragePointer, 0)
 	keys := make([]uint32, 0)
 	for i := 0; i < int(M); i++ {
-		pkt := buf[3+i*(storage_ptr.StoragePtrSize+4) : 3+(i+1)*(storage_ptr.StoragePtrSize+4)]
-		children = append(children, storage_ptr.NewStoragePointerFromBytes(pkt[:storage_ptr.StoragePtrSize]))
-		keys = append(keys, utils.UInt32FromBytes(utils.SliceTo4ByteArray(pkt[storage_ptr.StoragePtrSize:])))
+		pkt := buf[3+i*(consts.StoragePtrSize+4) : 3+(i+1)*(consts.StoragePtrSize+4)]
+		children = append(children, storage_ptr.NewStoragePointerFromBytes(pkt[:consts.StoragePtrSize]))
+		keys = append(keys, utils.UInt32FromBytes(utils.SliceTo4ByteArray(pkt[consts.StoragePtrSize:])))
 	}
 	children = append(children,
-		storage_ptr.NewStoragePointerFromBytes(buf[3+M*(storage_ptr.StoragePtrSize+4):3+(M+1)*(storage_ptr.StoragePtrSize+4)]))
+		storage_ptr.NewStoragePointerFromBytes(buf[3+M*(consts.StoragePtrSize+4):3+(M+1)*(consts.StoragePtrSize+4)]))
 	return &BPTNode{
 		NumKeys:    buf[1],
 		Keys:       keys,
 		ChildPtrs:  children,
 		IsLeafNode: isLeaf,
-		Parent:     storage_ptr.NewStoragePointerFromBytes(buf[len(buf)-storage_ptr.StoragePtrSize:]),
+		Parent:     storage_ptr.NewStoragePointerFromBytes(buf[len(buf)-consts.StoragePtrSize:]),
 	}
 }
 
@@ -474,13 +495,13 @@ func (ir *IndexedRecord) Serialize() []byte {
 	buf = append(buf, consts.IndexedRecordSize)
 	buf = append(buf, ir.RecordPtr.Serialize()...)
 	if ir.NxtPtr == nil {
-		for i := 0; i < storage_ptr.StoragePtrSize; i++ {
+		for i := 0; i < consts.StoragePtrSize; i++ {
 			buf = append(buf, 0)
 		}
 	} else {
 		buf = append(buf, ir.NxtPtr.Serialize()...)
 	}
-	for i := 0; i < storage_ptr.StoragePtrSize; i++ {
+	for i := 0; i < consts.StoragePtrSize; i++ {
 		buf = append(buf, 0)
 	}
 	return buf
@@ -492,7 +513,7 @@ func IndexedRecordFromBytes(buf []byte) *IndexedRecord {
 	}
 
 	return &IndexedRecord{
-		RecordPtr: storage_ptr.NewStoragePointerFromBytes(buf[1 : storage_ptr.StoragePtrSize+1]),
-		NxtPtr:    storage_ptr.NewStoragePointerFromBytes(buf[1+storage_ptr.StoragePtrSize:]),
+		RecordPtr: storage_ptr.NewStoragePointerFromBytes(buf[1 : consts.StoragePtrSize+1]),
+		NxtPtr:    storage_ptr.NewStoragePointerFromBytes(buf[1+consts.StoragePtrSize:]),
 	}
 }

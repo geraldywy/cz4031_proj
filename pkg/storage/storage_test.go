@@ -24,7 +24,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{28, 18, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[]byte{29, 19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 					nil,
 					nil,
 					nil,
@@ -34,7 +34,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 				BlockPtr:  2,
 				RecordPtr: 1,
 			},
-			want:    record.NewRecordFromBytes([]byte{18, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+			want:    record.NewRecordFromBytes([]byte{19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			wantErr: false,
 		},
 		{
@@ -43,7 +43,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{9, 18, 116, 116, 48, 48, 48, 48, 48},
+					[]byte{9, 19, 116, 116, 48, 48, 48, 48, 48},
 					[]byte{19, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 					nil,
 					nil,
@@ -53,7 +53,7 @@ func Test_storageImpl_ReadRecord(t *testing.T) {
 				BlockPtr:  2,
 				RecordPtr: 1,
 			},
-			want:    record.NewRecordFromBytes([]byte{18, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+			want:    record.NewRecordFromBytes([]byte{19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			wantErr: false,
 		},
 	}
@@ -98,19 +98,19 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				store: []block{
 					nil,
 					nil,
-					[]byte{19, 18, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					[]byte{20, 19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+						0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				},
 				spaceUsed:   100,
 				maxCapacity: 1000,
 				blockSize:   50,
 			},
 			args: args{
-				record: record.NewRecordFromBytes([]byte{18, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+				record: record.NewRecordFromBytes([]byte{19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0}),
 			},
 			want: &storage_ptr.StoragePointer{
 				BlockPtr:  2,
-				RecordPtr: 19,
+				RecordPtr: 20,
 			},
 			wantErr: false,
 		},
@@ -128,7 +128,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				blockSize:   30,
 			},
 			args: args{
-				record: record.NewRecordFromBytes([]byte{18, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157}),
+				record: record.NewRecordFromBytes([]byte{19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0}),
 			},
 			want: &storage_ptr.StoragePointer{
 				BlockPtr:  2,
@@ -149,7 +149,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				blockSize:   28,
 			},
 			args: args{
-				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+				record: record.NewRecordFromBytes([]byte{19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
 			want: &storage_ptr.StoragePointer{
 				BlockPtr:  3,
@@ -166,7 +166,7 @@ func Test_storageImpl_InsertRecord(t *testing.T) {
 				blockSize:   21,
 			},
 			args: args{
-				record: record.NewRecordFromBytes([]byte{0, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
+				record: record.NewRecordFromBytes([]byte{19, 116, 116, 48, 48, 48, 48, 48, 50, 55, 64, 179, 51, 51, 0, 0, 3, 157, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
 			},
 			want: &storage_ptr.StoragePointer{
 				BlockPtr:  0,

@@ -26,16 +26,19 @@ func NewRecordFromBytes(buf []byte) Record {
 	if buf == nil {
 		return nil
 	}
-
+	x := 1
+	if buf[x] == 0 {
+		x++
+	}
 	return &recordImpl{
-		tconst:        string(buf[1:10]),
-		averageRating: utils.Float32FromBytes(utils.SliceTo4ByteArray(buf[10:14])),
-		numVotes:      utils.Int32FromBytes(utils.SliceTo4ByteArray(buf[14:18])),
+		tconst:        string(buf[x:11]),
+		averageRating: utils.Float32FromBytes(utils.SliceTo4ByteArray(buf[11:15])),
+		numVotes:      utils.Int32FromBytes(utils.SliceTo4ByteArray(buf[15:19])),
 	}
 }
 
 type recordImpl struct {
-	tconst        string // fixed size string, size 9 ascii characters only
+	tconst        string // fixed size string, size 10 ascii characters only
 	averageRating float32
 	numVotes      int32
 }
@@ -44,6 +47,10 @@ func (r *recordImpl) Serialize() []byte {
 	buf := make([]byte, consts.RecordSize)
 	buf[0] = consts.RecordSize
 	j := 1
+	if len(r.tconst) < 10 {
+		buf = append(buf, 0)
+		j++
+	}
 	for i := range r.tconst {
 		buf[j] = r.tconst[i]
 		j += 1

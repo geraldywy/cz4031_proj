@@ -1,6 +1,7 @@
 package storage_ptr
 
 import (
+	"github.com/geraldywy/cz4031_proj1/pkg/consts"
 	"github.com/geraldywy/cz4031_proj1/pkg/utils"
 )
 
@@ -12,10 +13,8 @@ type StoragePointer struct {
 	RecordPtr uint8
 }
 
-const StoragePtrSize = 5
-
 func (s *StoragePointer) Serialize() []byte {
-	buf := make([]byte, StoragePtrSize)
+	buf := make([]byte, consts.StoragePtrSize)
 	if s == nil {
 		return buf
 	}
